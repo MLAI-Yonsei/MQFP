@@ -63,10 +63,10 @@ def get_parser():
     parser.add_argument("--data_root", type=str, default='/bp_benchmark/datasets/ETRI_2023/results')
     # -------------------------------------------------------
     parser.add_argument("--use_group" , action='store_true') # set default to FALSE  
-    parser.add_argument("--backbone", choices=["resnet1d", "mlpbp", "spectroresnet"], default="resnet1d")
+    parser.add_argument("--backbone", choices=["resnet1d", "mlpbp", "spectroresnet", "bptransformer"], default="resnet1d")
     parser.add_argument("--shots", default=0, type=int, help="Few-shot Regression")
-    parser.add_argument("--transfer", default=None, type=str, choices=["ppgbp", "sensors", "uci2", "bcg"])
-    parser.add_argument("--target", default=None, type=str, choices=["ppgbp", "sensors", "uci2", "bcg"])
+    parser.add_argument("--transfer", default=None, type=str, choices=["ppgbp", "sensors", "uci2", "bcg", "vital", "pulse"])
+    parser.add_argument("--target", default=None, type=str, choices=["ppgbp", "sensors", "uci2", "bcg", "vital", "pulse"])
     parser.add_argument("--prompt_weights", default='learnable', type=str, choices=["learnable", "cos_sim", "attention"])
     parser.add_argument("--penalty_scaler" , type=float, default=0.1)
     parser.add_argument("--qk_sim_coeff", type=float, default=0.5)
@@ -116,6 +116,7 @@ def get_parser():
     parser.add_argument("--get_emb", action='store_true')
     parser.add_argument("--sym_prompt", type=str2bool, choices=[True, False], default=True)
     parser.add_argument("--save_result", action='store_true')
+    parser.add_argument("--save_for_pretraining", action='store_true')
 
     return parser
 
@@ -192,7 +193,7 @@ def main(args):
     #--- get the solver
     if config.exp.model_type in ['unet1d', 'ppgiabp', 'vnet']:
         solver = solver_s2s(config)
-    elif config.exp.model_type in ['resnet1d','spectroresnet','mlpbp']: # Our Interest
+    elif config.exp.model_type in ['resnet1d','spectroresnet','mlpbp', 'bptransformer']: # Our Interest
         torch.use_deterministic_algorithms(True)
         solver = solver_s2l(config)
     else:

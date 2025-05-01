@@ -1,6 +1,7 @@
 from .trainer import MyTrainer
 from .unet1d import Unet1d
 from .resnet1d import Resnet1d
+from .bptransformer import BPTransformerRegressor
 from .lgbm import lgbModel
 from .rf import rfModel
 from .svr import svrModel

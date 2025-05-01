@@ -52,31 +52,55 @@ class SolverS2l(Solver):
     def _get_model(self, ckpt_path_abs=None, fold=None):
         model = None
         if self.config.transfer:
-            if self.config.exp.model_type == "resnet1d":
-                if self.config.transfer == "uci2":
-                    fold=0
-                backbone_name = f"{self.config.transfer}-{self.config.exp.model_type}"
-                if self.config.method == "original": # TODO
-                    if self.config.scratch:
+            backbone_name = f"{self.config.transfer}-{self.config.exp.model_type}"
+            if self.config.method == "original": # TODO
+                if self.config.scratch:
+                    if self.config.exp.model_type == "resnet1d":
                         self.transfer_config_path = f"./core/config/dl/resnet/resnet_{self.config.transfer}.yaml"
-                        self.transfer_config = OmegaConf.load(self.transfer_config_path)
-                        self.transfer_config = transferring(self.config, self.transfer_config)
+                    elif self.config.exp.model_type == "spectroresnet":
+                        self.transfer_config_path = f"./core/config/dl/spectroresnet/spectroresnet_{self.config.transfer}.yaml"
+                    elif self.config.exp.model_type == "mlpbp":
+                        self.transfer_config_path = f"./core/config/dl/mlpbp/mlpbp_{self.config.transfer}.yaml"
+                    elif self.config.exp.model_type == "bptransformer":
+                        self.transfer_config_path = f"./core/config/dl/bptransformer/bptransformer_{self.config.transfer}.yaml"
+                    self.transfer_config = OmegaConf.load(self.transfer_config_path)
+                    self.transfer_config = transferring(self.config, self.transfer_config)
+                    if self.config.exp.model_type == "resnet1d":
                         model = Resnet1d_original(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
-                    else:
-                        model = Resnet1d_original.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
-                        model.param_model.lr = self.config.param_model.lr
-                        model.param_model.wd = self.config.param_model.wd
-                        model.param_model.batch_size = self.config.param_model.batch_size
+                    elif self.config.exp.model_type == "spectroresnet":
+                        model = SpectroResnet(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
+                    elif self.config.exp.model_type == "mlpbp":
+                        model = MLPBP(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
+                    elif self.config.exp.model_type == "bptransformer":
+                        model = BPTransformerRegressor(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
                 else:
-                    model = Resnet1d.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
-                # Initialize Classifier
-                if self.config.lp or self.config.reset_head:
-                    model.model.main_clf = nn.Linear(in_features=model.model.main_clf.in_features,
-                                                    out_features=model.model.main_clf.out_features,
-                                                    bias=model.model.main_clf.bias is not None)
-                print(f"####### Load {self.config.exp.model_type} backbone model pre-trained by {self.config.transfer} #######")
+                    if self.config.exp.model_type == "resnet1d":
+                        model = Resnet1d_original.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                    elif self.config.exp.model_type == "spectroresnet":
+                        model = SpectroResnet.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                    elif self.config.exp.model_type == "mlpbp":
+                        model = MLPBP.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                    elif self.config.exp.model_type == "bptransformer":
+                        model = BPTransformerRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                    model.param_model.lr = self.config.param_model.lr
+                    model.param_model.wd = self.config.param_model.wd
+                    model.param_model.batch_size = self.config.param_model.batch_size
             else:
-                NotImplementedError
+                if self.config.exp.model_type == "resnet1d":
+                    model = Resnet1d.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
+                elif self.config.exp.model_type == "spectroresnet":
+                    model = SpectroResnet.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
+                elif self.config.exp.model_type == "mlpbp":
+                    model = MLPBP.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
+                elif self.config.exp.model_type == "bptransformer":
+                    model = BPTransformerRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
+            # Initialize Classifier
+            if self.config.lp or self.config.reset_head:
+                model.model.main_clf = nn.Linear(in_features=model.model.main_clf.in_features,
+                                                out_features=model.model.main_clf.out_features,
+                                                bias=model.model.main_clf.bias is not None)
+            print(f"####### Load {self.config.exp.model_type} backbone model pre-trained by {self.config.transfer} #######")
+
             return model
         if not ckpt_path_abs:
             if self.config.exp.model_type == "resnet1d":
@@ -88,6 +112,8 @@ class SolverS2l(Solver):
                 model = SpectroResnet(self.config.param_model, random_state=self.config.exp.random_state)
             elif self.config.exp.model_type == "mlpbp":
                 model = MLPBP(self.config.param_model, random_state=self.config.exp.random_state)
+            elif self.config.exp.model_type == "bptransformer":
+                model = BPTransformerRegressor(self.config.param_model, random_state=self.config.exp.random_state)
             else:
                 model = eval(self.config.exp.model_type)(self.config.param_model, random_state=self.config.exp.random_state)
             return model
@@ -186,7 +212,6 @@ class SolverS2l(Solver):
         
         #--- Data module
         dm = self._get_loader()
-
         #--- Load data
         if self.config.exp.subject_dict.endswith('.pkl'):
             all_split_df = joblib.load(self.config.exp.subject_dict)
@@ -275,7 +300,6 @@ class SolverS2l(Solver):
                     dirpath=f"{artifact_uri}/restored_model_checkpoint"
                 )
                 trainer = MyTrainer(**dict(self.config.param_trainer), callbacks=[early_stop_callback, checkpoint_callback, lr_logger])
-                
                 # train
                 trainer.fit(model, dm)
                 
@@ -310,6 +334,8 @@ class SolverS2l(Solver):
                 # save updated model
                 trainer.model = model
                 trainer.save_checkpoint(ckpt_path_abs)
+                if self.config.save_for_pretraining:
+                    trainer.save_checkpoint(f'/data1/bubble3jh/bp_L2P/code/train/pretrained_models/{self.config.target}-{self.config.backbone}/fold{foldIdx}.ckpt')
 
                 # clear redundant mlflow models (save disk space)
                 redundant_model_path = Path(artifact_uri)/'restored_model_checkpoint'

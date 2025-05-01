@@ -21,7 +21,7 @@ class MLPBP(Regressor):
                                param_model.dropout)
         
     def _shared_step(self, batch):
-        x_ppg, y, x_abp, peakmask, vlymask = batch
+        x_ppg, y, group, x_abp, peakmask, vlymask = batch
         pred = self.model(x_ppg['ppg'])
         loss = self.criterion(pred, y)
         return loss, pred, x_abp, y
@@ -136,8 +136,9 @@ class MLPMixer(nn.Module):
             nn.Linear(4*num_patch, 128),
             nn.Dropout(dropout),
             nn.ReLU(),
-            nn.Linear(128, num_classes)
+            # nn.Linear(128, num_classes)
         )
+        self.main_clf = nn.Linear(128, num_classes)
 
     def forward(self, x):
         # x = self.to_patch_embedding(x)
@@ -147,4 +148,6 @@ class MLPMixer(nn.Module):
         x = self.layer_norm(x)
         x = self.conv1d_decode(x)
         x = x.mean(dim=2)
-        return self.mlp_head(x)
+        x = self.mlp_head(x)
+        x = self.main_clf(x)
+        return x

@@ -29,7 +29,7 @@ class SpectroResnet(Regressor):
                                              UseDerivative=param_model.UseDerivative,
                                              verbose=param_model.model_verbose)
     def _shared_step(self, batch):
-        x_ppg, y, x_abp, peakmask, vlymask = batch
+        x_ppg, y, group, x_abp, peakmask, vlymask = batch
         pred = self.model(x_ppg['ppg'])
         loss = self.criterion(pred, y)
         return loss, pred, x_abp, y
@@ -170,7 +170,7 @@ class raw_signals_deep_ResNet(nn.Module):
                             nn.Linear(32, 32),
                             nn.ReLU(),
                             nn.Dropout(0.25)])
-        self.reg_mlp = nn.Linear(32, 2)
+        self.main_clf = nn.Linear(32, 2)
     def forward(self, x):
         x_all = [x]
         if self.UseDerivative:
@@ -218,7 +218,7 @@ class raw_signals_deep_ResNet(nn.Module):
         if self.verbose: print('joint_mlp', out.shape)
         out = out.view(out.shape[0], -1)
         if self.verbose: print('flatten', out.shape)
-        out = self.reg_mlp(out)
+        out = self.main_clf(out)
         if self.verbose: print('reg_mlp', out.shape)
         return out
     
