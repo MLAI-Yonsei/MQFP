@@ -234,12 +234,26 @@ class SolverS2l(Solver):
             # get_nested_fold_idx : [[0,1,2],[3],[4]] ## Generator
             if (self.config.exp.cv=='HOO') and (foldIdx==1):  break
             #if foldIdx==1: break
-            train_df = pd.concat(np.array(all_split_df)[folds_train])
-            val_df = pd.concat(np.array(all_split_df)[folds_val])
+
+            # train_df = pd.concat((np.array(all_split_df)[folds_train]))
+            # Concatenate training dataframes using for loop
+            train_dfs = []
+            for idx in folds_train:
+                train_dfs.append(all_split_df[idx])
+            train_df = pd.concat(train_dfs)
+            val_dfs = []
+            for idx in folds_val:
+                val_dfs.append(all_split_df[idx])
+            val_df = pd.concat(val_dfs)
+
             if self.config.shots: # train and validate with few-shot
                 train_df = group_shot(train_df, n=self.config.shots)
                 val_df = group_shot(val_df, n=5)
-            test_df = pd.concat(np.array(all_split_df)[folds_test])
+            
+            test_dfs = []
+            for idx in folds_test:
+                test_dfs.append(all_split_df[idx])
+            test_df = pd.concat(test_dfs)
             dm.setup_kfold(train_df, val_df, test_df)
 
             # Find scaled ppg_max, ppg_min

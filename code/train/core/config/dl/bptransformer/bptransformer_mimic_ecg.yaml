@@ -6,9 +6,9 @@ exp:
   N_fold: 5
   random_state: 300
   model_type: bptransformer
-  data_name: bcg
+  data_name: mimic_ecg
   exp_name: ${exp.data_name}-${exp.model_type}
-  subject_dict: /data3/shared_dataset/mqfp/${exp.data_name}_dataset/signal_fold
+  subject_dict: /data3/shared_dataset/mqfp/mimic_ecg/signal_fold
   loader: waveform
   cv: cv
   sim_coef: 1.0

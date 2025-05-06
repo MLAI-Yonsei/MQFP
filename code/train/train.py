@@ -66,7 +66,7 @@ def get_parser():
     parser.add_argument("--backbone", choices=["resnet1d", "mlpbp", "spectroresnet", "bptransformer"], default="resnet1d")
     parser.add_argument("--shots", default=0, type=int, help="Few-shot Regression")
     parser.add_argument("--transfer", default=None, type=str, choices=["ppgbp", "sensors", "uci2", "bcg", "vital", "pulse"])
-    parser.add_argument("--target", default=None, type=str, choices=["ppgbp", "sensors", "uci2", "bcg", "vital", "pulse"])
+    parser.add_argument("--target", default=None, type=str, choices=["ppgbp", "sensors", "uci2", "bcg", "vital", "pulse", "mimic_ecg", "vital_ecg"])
     parser.add_argument("--prompt_weights", default='learnable', type=str, choices=["learnable", "cos_sim", "attention"])
     parser.add_argument("--penalty_scaler" , type=float, default=0.1)
     parser.add_argument("--qk_sim_coeff", type=float, default=0.5)
