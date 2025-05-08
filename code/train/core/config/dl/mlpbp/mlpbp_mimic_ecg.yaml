@@ -35,7 +35,7 @@ param_model:
   batch_size: 256
   lr: 0.001
   in_channels: 1
-  num_patch: 625
+  num_patch: 1250
   num_classes: 2
   dim: 128
   depth: 6

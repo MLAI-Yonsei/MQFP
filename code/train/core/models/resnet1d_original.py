@@ -23,10 +23,10 @@ class Resnet1d_original(Regressor):
         x_ppg, y, group, x_abp, peakmask, vlymask = batch
         pred = self.model(x_ppg)
         loss = self.criterion(pred, y)
-        if not self.config.ignore_wandb:
-            wandb.log(
-                {f'{mode}/reg_loss':loss}
-                    )
+        # if not self.config.ignore_wandb:
+        #     wandb.log(
+        #         {f'{mode}/reg_loss':loss}
+        #             )
         return loss, pred, x_abp, y
 
     def training_step(self, batch, batch_idx):
