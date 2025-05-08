@@ -54,7 +54,7 @@ class SolverS2l(Solver):
         if self.config.transfer:
             backbone_name = f"{self.config.transfer}-{self.config.exp.model_type}"
             if self.config.method == "original": # TODO
-                if self.config.scratch:
+                if self.config.baseline == "scratch":
                     if self.config.exp.model_type == "resnet1d":
                         self.transfer_config_path = f"./core/config/dl/resnet/resnet_{self.config.transfer}.yaml"
                     elif self.config.exp.model_type == "spectroresnet":
@@ -95,7 +95,7 @@ class SolverS2l(Solver):
                 elif self.config.exp.model_type == "bptransformer":
                     model = BPTransformerRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
             # Initialize Classifier
-            if self.config.lp or self.config.reset_head:
+            if self.config.baseline == "lp" or self.config.reset_head:
                 model.model.main_clf = nn.Linear(in_features=model.model.main_clf.in_features,
                                                 out_features=model.model.main_clf.out_features,
                                                 bias=model.model.main_clf.bias is not None)
@@ -296,6 +296,16 @@ class SolverS2l(Solver):
                 else:         
                     model = self._get_model()
                     
+                for name, param in model.named_parameters():
+                    if self.config.baseline == "lp":
+                        # train only main_clf
+                        if 'main_clf' in name:
+                            param.requires_grad_(True)
+                        else:
+                            param.requires_grad_(False)
+                    elif self.config.baseline == "ft":
+                        # train all parameters
+                        param.requires_grad_(True)
             #####################################################
             #####################################################
             # Define optimizer with different learning rates for prompt_learner and other parameters

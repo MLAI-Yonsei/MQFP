@@ -75,8 +75,7 @@ def get_parser():
     parser.add_argument("--batch_size", default=4, type=int)
     parser.add_argument("--weight_per_prompt", action='store_true', help="on=> (3, pool), off => (3) learable weight")
     
-    parser.add_argument("--lp", action="store_true")
-    parser.add_argument("--scratch", action="store_true")
+    parser.add_argument("--baseline", default="ft", type=str, choices=["ft", "lp"])
     parser.add_argument("--use_pt_emb", action="store_true")
     parser.add_argument("--instance", action="store_true")
 
@@ -88,25 +87,27 @@ def get_parser():
     parser.add_argument("--lam", default=1.0, type=float, help="lam * ppg + (1-lam) * prompt")
     parser.add_argument("--diff_loss_weight", type=float, default=1.0)
 
-    # parser.add_argument("--normalize", action="store_true")
-    # parser.add_argument("--clip", action="store_true")
-    # parser.add_argument("--train_head" , action='store_true') # train regression head
-    # parser.add_argument("--reset_head" , action='store_true') # reset regression head like LP
-    # parser.add_argument("--stepbystep", action="store_true")
-    # parser.add_argument("--add_freq", action='store_true')  
-    # parser.add_argument("--train_imag", action="store_true")
-    # parser.add_argument("--pass_pca", action="store_true")
-    # parser.add_argument("--use_emb_diff", action="store_true")
+    # for bash grid search
+    parser.add_argument("--normalize", action="store_true")
+    parser.add_argument("--clip", action="store_true")
+    parser.add_argument("--train_head" , action='store_true') # train regression head
+    parser.add_argument("--reset_head" , action='store_true') # reset regression head like LP
+    parser.add_argument("--stepbystep", action="store_true")
+    parser.add_argument("--add_freq", action='store_true')  
+    parser.add_argument("--train_imag", action="store_true")
+    parser.add_argument("--pass_pca", action="store_true")
+    parser.add_argument("--use_emb_diff", action="store_true")
 
-    parser.add_argument("--normalize", type=str2bool, choices=[True, False], default=False)
-    parser.add_argument("--clip", type=str2bool, choices=[True, False], default=False)
-    parser.add_argument("--train_head", type=str2bool, choices=[True, False], default=False)
-    parser.add_argument("--reset_head", type=str2bool, choices=[True, False], default=False)
-    parser.add_argument("--stepbystep", type=str2bool, choices=[True, False], default=False)
-    parser.add_argument("--add_freq", type=str2bool, choices=[True, False], default=True)
-    parser.add_argument("--train_imag", type=str2bool, choices=[True, False], default=False)
-    parser.add_argument("--pass_pca", type=str2bool, choices=[True, False], default=False)
-    parser.add_argument("--use_emb_diff", type=str2bool, choices=[True, False], default=False)
+    # for wandb bayesian search
+    # parser.add_argument("--normalize", type=str2bool, choices=[True, False], default=False)
+    # parser.add_argument("--clip", type=str2bool, choices=[True, False], default=False)
+    # parser.add_argument("--train_head", type=str2bool, choices=[True, False], default=False)
+    # parser.add_argument("--reset_head", type=str2bool, choices=[True, False], default=False)
+    # parser.add_argument("--stepbystep", type=str2bool, choices=[True, False], default=False)
+    # parser.add_argument("--add_freq", type=str2bool, choices=[True, False], default=True)
+    # parser.add_argument("--train_imag", type=str2bool, choices=[True, False], default=False)
+    # parser.add_argument("--pass_pca", type=str2bool, choices=[True, False], default=False)
+    # parser.add_argument("--use_emb_diff", type=str2bool, choices=[True, False], default=False)
     # parser.add_argument("--input_prompting", type=str2bool, choices=[True, False], default=False)
 
     parser.add_argument('--add_prompts', type=str, default="None", choices=['every', 'final', 'None'])
@@ -252,10 +253,10 @@ if __name__ == '__main__':
     src_data = args.transfer
     tgt_data = args.target
     group_name = f'{src_data}-{tgt_data}'
-    if args.scratch:
-        group_name = group_name + '-scratch'
-    if args.lp:
+    if args.baseline == 'lp':
         group_name = group_name + '-linearprobing'
+    elif args.baseline == 'ft':
+        group_name = group_name + '-finetuning'
     if args.method == 'prompt_global':
         group_name = group_name + f'-prompt_global'
     
