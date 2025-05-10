@@ -446,12 +446,12 @@ class L2Prompt(nn.Module):
         
         return prompted_signal, sim_loss, entropy_penalty
 
-class Custom_model(pl.LightningModule):
+class MQFP_wrapper(pl.LightningModule):
     def __init__(self, model, data_shape, model_config, config, stats, fold):
         super().__init__()
         self.fold = fold
         self.config = config
-        self.res_model = model
+        self.base_model = model
         self.data_shape = data_shape
         self.model_config = model_config
         self.ppg_min = stats[0]
@@ -482,7 +482,7 @@ class Custom_model(pl.LightningModule):
         self.hidden_output = output
 
     def embedding_loss(self, h, group):
-        self.source_emb = torch.load(f'./embeds_mean/{self.config.transfer}_mean_embeddings.pt', map_location=self.res_model.device)
+        self.source_emb = torch.load(f'./embeds_mean/{self.config.backbone}/{self.config.transfer}_mean_embeddings.pt', map_location=self.base_model.device)
         h_source = self.source_emb[group]
         diff_loss = torch.norm(h-h_source, dim=1).mean()
         return diff_loss
@@ -499,18 +499,18 @@ class Custom_model(pl.LightningModule):
         if self.config.clip:
             merged = torch.clamp(merged, min=self.ppg_min,max=self.ppg_max)
         
-        hidden_emb = self.res_model.extract_penultimate_embedding(merged)
+        hidden_emb = self.base_model.extract_penultimate_embedding(merged)
 
         # hidden_emb + prompt 를 resnet penltimate layer에 삽입 (교체)
-        # pred = self.res_model.main_clf(hidden_emb + penulit_emb_prompt)
+        # pred = self.base_model.main_clf(hidden_emb + penulit_emb_prompt)
 
         # torch.save(merged, "merged_1.pt")
-        # pred = self.res_model(merged)
+        # pred = self.base_model(merged)
 
         if self.config.add_prompts == "every" or self.config.add_prompts == 'final':
-            pred = self.res_model.model.forward_w_add_prompts(merged)
+            pred = self.base_model.model.forward_w_add_prompts(merged)
         else:
-            pred = self.res_model(merged)
+            pred = self.base_model(merged)
 
         if mode=='test' and self.config.get_emb:
             self.prompt_hist.append(self.prompt_learner_glo.top1_indices)
@@ -641,10 +641,10 @@ class Custom_model(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam([
             {'params': self.prompt_learner_glo.parameters(), 'lr': self.config.lr, 'weight_decay': self.config.wd},
-            {'params': self.res_model.parameters(), 'lr': self.config.lr, 'weight_decay': self.config.wd}
+            {'params': self.base_model.parameters(), 'lr': self.config.lr, 'weight_decay': self.config.wd}
         ])
         # optimizer = torch.optim.Adam([
         #     {'params': self.prompt_learner_glo.parameters(), 'lr': self.config.lr, 'weight_decay': self.config.wd},
-        #     {'params': self.res_model.parameters(), 'lr': self.config.lr, 'weight_decay': self.config.wd}
+        #     {'params': self.base_model.parameters(), 'lr': self.config.lr, 'weight_decay': self.config.wd}
         # ])
         return optimizer

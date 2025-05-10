@@ -35,7 +35,7 @@ from core.utils import (
 from core.load_model import model_fold
 from core.model_config import model_configuration
 from core.models import *
-from core.prompt_tuning import Custom_model
+from core.prompt_tuning import MQFP_wrapper
 
 import pdb
 
@@ -274,7 +274,7 @@ class SolverS2l(Solver):
                     res_model = self._get_model(ck_path)
                 model_config = model_configuration[data_name]
                 data_shape = model_config["data_dim"]
-                model = Custom_model(res_model, data_shape, model_config, self.config, stats, foldIdx)
+                model = MQFP_wrapper(res_model, data_shape, model_config, self.config, stats, foldIdx)
 
                 for name, param in model.named_parameters():
                     train_list = ['prompt_learner', 'main_clf', 'penultimate_layer_prompt'] if self.config.train_head else ['prompt_learner', 'layer_wise_prompt']
@@ -354,7 +354,7 @@ class SolverS2l(Solver):
                     torch.save(prompted_input, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_prompted_inputs.pt')
                     torch.save(hidden_embs, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_hidden_embs.pt')
                     torch.save(prompt_hist, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_prompt_hist.pt')
-                
+                    import pdb; pdb.set_trace()
                 # save updated model
                 trainer.model = model
                 trainer.save_checkpoint(ckpt_path_abs)
@@ -512,8 +512,8 @@ class SolverS2l(Solver):
                     regressor = self._get_model(ckpt_path_abs) # Load Model # TODO
                 model_config = model_configuration[self.config.backbone][data_name] # Load pre-trained model config
                 data_shape = model_config["data_dim"] 
-                model = Custom_model(regressor, data_shape, model_config, self.config, stats, foldIdx)
-                #model = Custom_model.load_from_checkpoint(ckpt_path_abs) # Call Prompt Model 
+                model = MQFP_wrapper(regressor, data_shape, model_config, self.config, stats, foldIdx)
+                #model = MQFP_wrapper.load_from_checkpoint(ckpt_path_abs) # Call Prompt Model 
                 
                 model.load_state_dict(torch.load(ckpt_path_abs)["state_dict"])
 

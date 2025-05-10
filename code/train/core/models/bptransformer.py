@@ -55,7 +55,9 @@ class BPTransformer(nn.Module):
         self.main_clf = nn.Linear(hiddenDim * 2, 2)
 
 
-    def forward(self, src, tgt, demographicFeatures, srcMask=None):
+    def forward(self, src, tgt, demographicFeatures, srcMask=None, return_penultimate=False):
+        if srcMask is not None:
+            import pdb; pdb.set_trace()
         src = self.embedding(src)
         src = self.posEncoder(src)
 
@@ -76,7 +78,10 @@ class BPTransformer(nn.Module):
         outputDbp = self.relu2(self.fcForDbp(combinedFeatures))
         
         output = self.main_clf(torch.cat([outputSbp, outputDbp], dim=-1))
-        return output
+        if return_penultimate:
+            return torch.cat([outputSbp, outputDbp], dim=-1)
+        else:
+            return output
 
 
 class BPTransformerRegressor(Regressor):
@@ -106,6 +111,24 @@ class BPTransformerRegressor(Regressor):
 
         loss = self.criterion(pred_bp, y)                 
         return loss, pred_bp, x_abp, y
+    
+    def extract_penultimate_embedding(self, x_ppg):
+        x_ppg = x_ppg.transpose(1, 2)
+        src = x_ppg[:, :-1, :]            # L-1 step
+        tgt = x_ppg[:, -1:, :]            # decoder input
+
+        demo = None                       
+        penultimate_embedding = self.model(src=src, tgt=tgt, demographicFeatures=demo, return_penultimate=True)      # forward
+        return penultimate_embedding
+    
+    def forward(self, x):
+        x = x.transpose(1, 2)
+        src = x[:, :-1, :]            # L-1 step
+        tgt = x[:, -1:, :]            # decoder input
+
+        demo = None                       
+        x = self.model(src=src, tgt=tgt, demographicFeatures=demo, return_penultimate=False)      # forward
+        return x
 
     def training_step(self, batch, batch_idx):
         loss, pred_bp, t_abp, label = self._shared_step(batch)

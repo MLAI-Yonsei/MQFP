@@ -34,6 +34,7 @@ class Resnet1d(Regressor):
             else:
                 x = layer(x)
         # x is now the output of the penultimate layer
+        import pdb; pdb.set_trace()
         penultimate_embedding = x.mean(-1)
         return penultimate_embedding
 

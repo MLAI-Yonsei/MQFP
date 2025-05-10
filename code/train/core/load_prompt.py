@@ -16,7 +16,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
 from core.models import *
-from core.prompt_tuning import Custom_model
+from core.prompt_tuning import MQFP_wrapper
 # Others
 import torch.nn as nn
 import torch

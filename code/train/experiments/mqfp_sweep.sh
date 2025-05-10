@@ -7,7 +7,7 @@ TRAINING_SCRIPT="train.py"
 
 TRANSFER_RANGE=("bcg" "ppgbp" "sensors")
 TARGET_RANGE=("bcg" "ppgbp" "sensors")
-BACKBONE_RANGE=("spectroresnet" "mlpbp" "bptransformer") # "resnet1d" 
+BACKBONE_RANGE=("bptransformer") # "resnet1d"  "spectroresnet" "mlpbp" 
 SHOTS_RANGE=(5 10)
 
 PENALTY=""
