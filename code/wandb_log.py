@@ -83,3 +83,29 @@ print_multiindex_table(df, 5, "mae_sum", "SBP+DBP MAE Sum")
 print_multiindex_table(df, 10, "mae_sum", "SBP+DBP MAE Sum")
 print_multiindex_table(df, 5, "gal_sum", "SBP+DBP GAL Sum")
 print_multiindex_table(df, 10, "gal_sum", "SBP+DBP GAL Sum")
+
+def print_best_counts(df, shots, metric_type, order):
+    df_sub = df[(df["shots"] == shots) & (df["metric_type"] == metric_type)]
+
+    # (1) 각 조합의 최소값만 남긴 피벗
+    pivot = pd.pivot_table(
+        df_sub,
+        index="backbone",
+        columns=["transfer", "target"],
+        values="avg_sum",
+        aggfunc="min"
+    )
+
+    # (2) transfer-target 열마다 어떤 backbone이 최소인가?
+    best_per_pair = pivot.idxmin()            # Series: col → backbone
+    counts = best_per_pair.value_counts().reindex(order, fill_value=0)
+
+    print(f"\n🏆 Best-count summary  |  metric={metric_type}, shots={shots}")
+    for b in order:
+        print(f"{b:14}: {counts[b]}")
+
+order = ["mlpbp", "spectroresnet", "bptransformer"]
+
+for s in shots_list:
+    for m in metric_sets.keys():
+        print_best_counts(df, s, m, order)
