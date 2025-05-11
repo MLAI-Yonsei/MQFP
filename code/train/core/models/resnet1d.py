@@ -9,9 +9,9 @@ coloredlogs.install()
 logger = logging.getLogger(__name__)  
 import wandb
 
-class Resnet1d(Regressor):
+class Resnet1dRegressor(Regressor):
     def __init__(self, param_model, random_state=0):
-        super(Resnet1d, self).__init__(param_model, random_state)        
+        super(Resnet1dRegressor, self).__init__(param_model, random_state)        
         self.model = ResNet1D(param_model.in_channel, param_model.base_filters,
                                 param_model.first_kernel_size, param_model.kernel_size, 
                                 param_model.stride, param_model.groups, param_model.n_block,
@@ -34,7 +34,6 @@ class Resnet1d(Regressor):
             else:
                 x = layer(x)
         # x is now the output of the penultimate layer
-        import pdb; pdb.set_trace()
         penultimate_embedding = x.mean(-1)
         return penultimate_embedding
 

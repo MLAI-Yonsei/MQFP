@@ -1,6 +1,6 @@
 from .trainer import MyTrainer
 from .unet1d import Unet1d
-from .resnet1d import Resnet1d
+from .resnet1d import Resnet1dRegressor
 from .bptransformer import BPTransformerRegressor
 from .lgbm import lgbModel
 from .rf import rfModel
@@ -11,4 +11,4 @@ from .ppgiabp import PPGIABP
 from .spectroresnet import SpectroResnet
 from .mlpbp import MLPBP
 from .vnet1d import Vnet1d
-from .resnet1d_original import Resnet1d_original
+from .resnet1d_original import Resnet1dRegressor_original

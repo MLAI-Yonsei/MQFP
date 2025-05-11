@@ -69,15 +69,15 @@ class SolverS2l(Solver):
                         self.transfer_config_path = f"./core/config/dl/resnet/resnet_{self.config.transfer}.yaml"
                         self.transfer_config = OmegaConf.load(self.transfer_config_path)
                         self.transfer_config = transferring(self.config, self.transfer_config)
-                        model = Resnet1d_original(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
+                        model = Resnet1dRegressor_original(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
                     else:
-                        model = Resnet1d_original.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                        model = Resnet1dRegressor_original.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
                         lr = self.config.param_model.lr
                         wd = self.config.param_model.wd
                         model.param_model.lr = lr
                         model.param_model.wd = wd
                 else:
-                    model = Resnet1d.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                    model = Resnet1dRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
                 # Initialize Classifier
                 model.model.main_clf = nn.Linear(in_features=model.model.main_clf.in_features,
                                                  out_features=model.model.main_clf.out_features,
@@ -90,9 +90,9 @@ class SolverS2l(Solver):
         elif not ckpt_path_abs:
             if self.config.exp.model_type == "resnet1d":
                 if self.config.method == "original":
-                    model = Resnet1d_original(self.config.param_model, random_state=self.config.exp.random_state)
+                    model = Resnet1dRegressor_original(self.config.param_model, random_state=self.config.exp.random_state)
                 else:
-                    model = Resnet1d(self.config.param_model, random_state=self.config.exp.random_state)
+                    model = Resnet1dRegressor(self.config.param_model, random_state=self.config.exp.random_state)
             elif self.config.exp.model_type == "spectroresnet":
                 model = SpectroResnet(self.config.param_model, random_state=self.config.exp.random_state)
             elif self.config.exp.model_type == "mlpbp":
@@ -103,9 +103,9 @@ class SolverS2l(Solver):
         else:
             if self.config.exp.model_type == "resnet1d":
                 if self.config.method == "original":
-                    model = Resnet1d_original.load_from_checkpoint(ckpt_path_abs)
+                    model = Resnet1dRegressor_original.load_from_checkpoint(ckpt_path_abs)
                 else:
-                    model = Resnet1d.load_from_checkpoint(ckpt_path_abs)
+                    model = Resnet1dRegressor.load_from_checkpoint(ckpt_path_abs)
             elif self.config.exp.model_type == "spectroresnet":
                 model = SpectroResnet.load_from_checkpoint(ckpt_path_abs)
             elif self.config.exp.model_type == "mlpbp":

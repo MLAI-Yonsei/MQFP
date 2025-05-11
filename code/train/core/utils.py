@@ -12,7 +12,25 @@ from pyampd.ampd import find_peaks
 from mlflow.tracking import MlflowClient
 from mlflow.utils.autologging_utils.safety import try_mlflow_log
 import scipy
-    
+
+def dbg(name, t, step=None):
+    with torch.no_grad():
+        finite = torch.isfinite(t)
+        print(f"[{step}] {name:18s}"
+              f"  shape={tuple(t.shape)}"
+              f"  finite={finite.all().item()}"
+              f"  min={t[finite].min().item() if finite.any() else 'nan'}"
+              f"  max={t[finite].max().item() if finite.any() else 'nan'}"
+              f"  mean={t[finite].mean().item() if finite.any() else 'nan'}"
+              f"  std={t[finite].std().item() if finite.any() else 'nan'}")
+        
+def register_nan_for_tensor(tensor, name):
+    if tensor.requires_grad:
+        tensor.register_hook(
+            lambda g, n=name: print(f"[NaN GRAD - act] {n}") 
+            if torch.isnan(g).any() or torch.isinf(g).any() else None)
+    else:
+        print(f"[NaN GRAD - act] {name} has no gradients.. right now")
 def str2bool(v):
     if isinstance(v, bool): return v
     if v.lower() in ('yes', 'true', 't', 'y', '1'): return True

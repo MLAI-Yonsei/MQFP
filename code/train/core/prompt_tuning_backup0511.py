@@ -8,9 +8,8 @@ import numpy as np
 from sklearn.decomposition import IncrementalPCA, PCA
 from pyts.decomposition import SingularSpectrumAnalysis
 import pywt
-from core.utils import perform_pca, project_to_pca_plane, loc_z, perform_pca_w_fft, freq_norm, freq_denorm, dbg, register_nan_for_tensor
+from core.utils import perform_pca, project_to_pca_plane, loc_z, perform_pca_w_fft, freq_norm, freq_denorm
 import wandb
-import math
 
 def hook_fn(module, input, output):
     global hidden_output
@@ -182,74 +181,31 @@ class L2Prompt_stepbystep(nn.Module):
             self.prompts = nn.Parameter(torch.randn(self.num_pool, 1, self.trunc_dim*2 if config.train_imag else self.trunc_dim))
         nn.init.uniform_(self.prompts,-1,1)
     
-    # def forward(self, x, group_labels, pca_matrix, pca_mean):
-    #     bs = x['ppg'].shape[0]
-    #     dim = x['ppg'].shape[-1]
-
-    #     # fft2pca_emb: FFT=>PCA (Batch, PCA_DIM)
-    #     fft2pca_emb, fft_emb, _ = self.ppg_embedding_generator.gen_ppg_emb(x['ppg'], group_labels, pca_matrix, pca_mean, multi_query=False)
-
-    #     if len(fft2pca_emb.shape) == 1:
-    #         fft2pca_emb = fft2pca_emb.unsqueeze(0)
-
-    #     if not self.config.pass_pca:
-    #         query = self.pca_proj(fft2pca_emb)  # (B, D_q)
-    #         query = query.unsqueeze(1)          # (B, 1, D_q)
-    #         query = F.layer_norm(query, query.shape[-1:])  # 안정화 추가
-
-    #     elif self.config.pass_pca:
-    #         query = fft_emb.unsqueeze(1)
-    #         query = self.norm(query)
-    #         query = self.fft_proj(query)
-    #         # query = query.unsqueeze(1)
-
-    #     d_k = query.size(-1)
-    #     qk = torch.einsum('bid,pid->bip', query, self.keys) / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
-
-    #     gumbel_samples = F.gumbel_softmax(qk, tau=1.0, hard=True)
-    #     self.top1_indices = gumbel_samples.argmax(dim=-1).to(torch.int64)
-    #     top1_prompts = torch.einsum('bip,pid->bid', gumbel_samples, self.prompts)
-    def forward(self, x, group_labels, pca_matrix, pca_mean, step=0):
+    def forward(self, x, group_labels, pca_matrix, pca_mean):
         bs = x['ppg'].shape[0]
-        # ---------------------------------------------------
-        fft2pca_emb, fft_emb, _ = self.ppg_embedding_generator.gen_ppg_emb(
-            x['ppg'], group_labels, pca_matrix, pca_mean, multi_query=False)
-        dbg("fft2pca_emb", fft2pca_emb, step)
+        dim = x['ppg'].shape[-1]
 
-        # ---------------------------------------------------  pca_proj
-        dbg("pca_proj.weight", self.pca_proj.weight, step)
+        # fft2pca_emb: FFT=>PCA (Batch, PCA_DIM)
+        fft2pca_emb, fft_emb, _ = self.ppg_embedding_generator.gen_ppg_emb(x['ppg'], group_labels, pca_matrix, pca_mean, multi_query=False)
+
+        if len(fft2pca_emb.shape) == 1:
+            fft2pca_emb = fft2pca_emb.unsqueeze(0)
 
         if not self.config.pass_pca:
-            query = self.pca_proj(fft2pca_emb)
-            dbg("query_raw", query, step)
 
+            query = self.pca_proj(fft2pca_emb) # Batch, D_q
             query = query.unsqueeze(1)
-            query = F.layer_norm(query, query.shape[-1:])
-            dbg("query_norm", query, step)
-        else:
+        elif self.config.pass_pca:
             query = fft_emb.unsqueeze(1)
             query = self.norm(query)
             query = self.fft_proj(query)
-            dbg("query_fftproj", query, step)
-            
-        # ---------------------------------------------------  keys
-        dbg("keys", self.keys, step)
+            # query = query.unsqueeze(1)
 
         d_k = query.size(-1)
-        query_norm = F.layer_norm(query, query.shape[-1:])
-        
-        register_nan_for_tensor(query_norm, "query_norm")     # ← ①
-        d_k = query_norm.size(-1)
-
-        qk = torch.einsum('bid,pid->bip', query_norm, self.keys) / math.sqrt(d_k)
-        register_nan_for_tensor(qk, "qk")                     # ← ②
-
-        # gumbel_samples = F.gumbel_softmax(qk, tau=1.0, hard=True)
-        gumbel_samples = F.gumbel_softmax(qk, tau=2.0, hard=False)
-        register_nan_for_tensor(gumbel_samples, "gumbel")     # ← ③
-
+        qk = torch.einsum('bid,pid->bip', query, self.keys) / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+        gumbel_samples = F.gumbel_softmax(qk, tau=1.0, hard=True)
+        self.top1_indices = gumbel_samples.argmax(dim=-1).to(torch.int64)
         top1_prompts = torch.einsum('bip,pid->bid', gumbel_samples, self.prompts)
-        register_nan_for_tensor(top1_prompts, "top1_prompts") # ← ④
 
         if self.config.add_freq:
             # fft + propmt
@@ -260,7 +216,7 @@ class L2Prompt_stepbystep(nn.Module):
             # 1번째부터 trunc_dim+1 번째까지 값을 넣고 나머지에 zero padding
             truncated_prompt_real = torch.zeros_like(x['ppg'], dtype=torch.float)
             truncated_prompt_imag = torch.zeros_like(x['ppg'], dtype=torch.float)
-            
+
             truncated_prompt_real[:,:,1:self.trunc_dim+1] = self.config.global_coeff*top1_prompts[:,:,:self.trunc_dim]
             if self.config.sym_prompt:
                 # truncated_prompt_real[:,:,-self.trunc_dim:] = self.config.global_coeff*top1_prompts[:,:,:self.trunc_dim]
@@ -303,9 +259,8 @@ class L2Prompt_stepbystep(nn.Module):
         gumbel_samples = gumbel_samples.squeeze().sum(dim=0)
         probabilities = gumbel_samples.float() / bs
         entropy = -torch.sum(probabilities * torch.log(probabilities+1e-10))
-        
+
         if self.prompts.grad is not None:
-            import pdb; pdb.set_trace()
             wandb.log({f'Prompts/gradient': wandb.Histogram(self.prompts.grad.cpu().numpy())})
             wandb.log({f'key/gradient': wandb.Histogram(self.keys.grad.cpu().numpy())})
 

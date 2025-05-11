@@ -46,13 +46,13 @@ for BACKBONE in "${BACKBONE_RANGE[@]}"; do
         fi
 
         if [ "$BACKBONE" = "resnet1d" ]; then
-          CONFIG_FILE="core/config/dl/resnet/resnet_${TARGET}.yaml"
+          CONFIG_FILE="core/config/dl/resnet/resnet_${TRANSFER}.yaml"
         elif [ "$BACKBONE" = "spectroresnet" ]; then
-          CONFIG_FILE="core/config/dl/spectroresnet/spectroresnet_${TARGET}.yaml"
+          CONFIG_FILE="core/config/dl/spectroresnet/spectroresnet_${TRANSFER}.yaml"
         elif [ "$BACKBONE" = "mlpbp" ]; then
-          CONFIG_FILE="core/config/dl/mlpbp/mlpbp_${TARGET}.yaml"
+          CONFIG_FILE="core/config/dl/mlpbp/mlpbp_${TRANSFER}.yaml"
         elif [ "$BACKBONE" = "bptransformer" ]; then
-          CONFIG_FILE="core/config/dl/bptransformer/bptransformer_${TARGET}.yaml"
+          CONFIG_FILE="core/config/dl/bptransformer/bptransformer_${TRANSFER}.yaml"
         fi
 
         for M in "${METHOD_OPTIONS[@]}"; do

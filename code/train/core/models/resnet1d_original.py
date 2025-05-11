@@ -10,9 +10,9 @@ coloredlogs.install()
 logger = logging.getLogger(__name__)
 
 
-class Resnet1d_original(Regressor):
+class Resnet1dRegressor_original(Regressor):
     def __init__(self, param_model, random_state=0):
-        super(Resnet1d_original, self).__init__(param_model, random_state)
+        super(Resnet1dRegressor_original, self).__init__(param_model, random_state)
 
         self.model = ResNet1D_original(param_model.in_channel, param_model.base_filters,
                               param_model.first_kernel_size, param_model.kernel_size,
