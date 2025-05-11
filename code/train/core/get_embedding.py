@@ -1,4 +1,5 @@
 # core/get_embedding.py
+# run command !!!! [ TODO ] bp_L2P/code/train$ PYTHONPATH=. python core/get_embedding.py [ TODO ]
 # -----------------------------------------------------
 # 0. 기본 import & 경로 설정
 # -----------------------------------------------------
@@ -19,7 +20,7 @@ from models import BPTransformerRegressor
 # -----------------------------------------------------
 device        = "cuda:0"
 root_ckpt     = "/data1/bubble3jh/bp_L2P/code/train/pretrained_models"
-ds_tag        = "bcg"
+ds_tag        = "sensors"
 backbone      = "bptransformer"
 cfg           = OmegaConf.load(f"core/config/dl/{backbone}/{backbone}_{ds_tag}.yaml")
 ckpt_tpl      = f"{root_ckpt}/{ds_tag}-{backbone}/fold{{}}.ckpt"
@@ -48,7 +49,6 @@ class BPDataset(Dataset):
     def __getitem__(self, idx):
         row       = self.df.iloc[idx]
         x_ppg     = self._fix_len(row["signal"])        # (L,)
-        x_abp     = self._fix_len(row["abp_signal"])    # (L,)
         y         = torch.tensor([row["SP"], row["DP"]], dtype=torch.float32)
         group     = torch.tensor(row["group"], dtype=torch.long)
         peakmask  = torch.zeros(self.seq_len, dtype=torch.bool)
@@ -57,19 +57,18 @@ class BPDataset(Dataset):
         # BPTransformerRegressor 는 dict 형태의 x_ppg 를 expectation
         return (
             {"ppg": x_ppg.unsqueeze(0)},  # (1, L)
-            y, group, x_abp,
+            y, group, None,
             peakmask, vlymask
         )
 
 def bp_collate(batch):
-    x_ppg, y, group, x_abp, peakmask, vlymask = zip(*batch)
+    x_ppg, y, group, _, peakmask, vlymask = zip(*batch)
     x_ppg   = torch.stack([b["ppg"] for b in x_ppg])   # (B,1,L)
     y       = torch.stack(y)
     group   = torch.stack(group)
-    x_abp   = torch.stack(x_abp)
     peakmask= torch.stack(peakmask)
     vlymask = torch.stack(vlymask)
-    return x_ppg, y, group, x_abp, peakmask, vlymask
+    return x_ppg, y, group, None, peakmask, vlymask
 
 # -----------------------------------------------------
 # 3. 데이터 전체 로드 & 전처리
@@ -115,6 +114,6 @@ for fold_idx in range(cfg.exp.N_fold):
 
     fold_emb = torch.cat(emb_list)      # (N,D)
     fold_lab = torch.cat(label_list)
-    out_f    = f"embeddings_{ds_tag}_{backbone}_fold{fold_idx}_ALL.pt"
+    out_f    = f"/data1/bubble3jh/bp_L2P/code/train/embeds_mean/bptransformer/{ds_tag}_fold{fold_idx}_ALL.pt"
     torch.save({"embeddings": fold_emb, "labels": fold_lab}, out_f)
     print(f"[Fold {fold_idx}] saved → {out_f} {tuple(fold_emb.shape)}")
