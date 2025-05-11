@@ -1,3 +1,5 @@
+# !/bin/bash
+
 # Model: spectroresnet
 CUDA_VISIBLE_DEVICES=2 python train.py --target=mimic_ecg --batch_size=6 --config_file=core/config/dl/spectroresnet/spectroresnet_mimic_ecg.yaml --epochs=100 --method=original --shots=0 --ignore_wandb --save_for_pretraining --backbone spectroresnet &
 
@@ -9,4 +11,8 @@ CUDA_VISIBLE_DEVICES=4 python train.py --target=mimic_ecg --batch_size=6 --confi
 
 # Model: BPTransformer
 CUDA_VISIBLE_DEVICES=5 python train.py --target=mimic_ecg --batch_size=6 --config_file=core/config/dl/bptransformer/bptransformer_mimic_ecg.yaml --epochs=100 --method=original --shots=0 --ignore_wandb --save_for_pretraining --backbone bptransformer &
+
+wait
+
+
 echo "Done"
