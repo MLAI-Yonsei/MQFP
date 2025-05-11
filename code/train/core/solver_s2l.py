@@ -340,6 +340,7 @@ class SolverS2l(Solver):
                 val_outputs = trainer.validate(model=model, val_dataloaders=dm.val_dataloader(), verbose=False)
                 test_outputs = trainer.test(model=model, test_dataloaders=dm.test_dataloader(), verbose=True)
                 if self.config.get_emb:
+                    import pdb; pdb.set_trace()
                     raw_inputs = torch.cat(model.raw_input, dim=0)
                     prompted_input = torch.cat(model.prompted_input, dim=0)
                     hidden_embs = torch.cat(model.hidden_embs, dim=0)
@@ -354,7 +355,7 @@ class SolverS2l(Solver):
                     torch.save(prompted_input, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_prompted_inputs.pt')
                     torch.save(hidden_embs, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_hidden_embs.pt')
                     torch.save(prompt_hist, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_prompt_hist.pt')
-                    import pdb; pdb.set_trace()
+                    
                 # save updated model
                 trainer.model = model
                 trainer.save_checkpoint(ckpt_path_abs)
