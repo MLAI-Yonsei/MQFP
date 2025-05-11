@@ -527,6 +527,7 @@ def group_annot(list_of_df):
         df.loc[(((120 <= df.SP) & (df.SP <= 140)) | ((80 <= df.DP) & (df.DP <= 90))) & (df.group==100), 'group'] = 2  # Prehyper
         df.loc[(((90 <= df.SP) & (df.SP <= 120)) | ((60 <= df.DP) & (df.DP <= 80))) & (df.group==100), 'group'] = 1  # Normal
         df.loc[(((80 <= df.SP) & (df.SP <= 90)) | ((40 <= df.DP) & (df.DP <= 60))) & (df.group==100), 'group'] = 0 # Hypo
+        df.loc[((df.SP < 80) & (df.DP < 40)) & (df.group==100), 'group'] = 0 # Hypo
         value_counts = df['group'].value_counts()
         remain = value_counts.get(100, 0)
 
