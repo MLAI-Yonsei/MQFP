@@ -54,8 +54,8 @@ class BPTransformer(nn.Module):
         self.relu2 = nn.ReLU()
 
         self.main_clf = nn.Linear(hiddenDim * 2, 2)
-        print("penultimate layer prompt is not used")
-        # self.penultimate_layer_prompt = PenultimateLayerPrompt()
+        # print("penultimate layer prompt is not used")
+        self.penultimate_layer_prompt = PenultimateLayerPrompt()
 
 
     def forward(self, src, tgt, demographicFeatures, srcMask=None, return_penultimate=False):
