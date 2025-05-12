@@ -124,5 +124,4 @@ class sensorsLoader():
         # Non-signal data
         ppg = self.all_ppg[index]
         y = self.all_label[index]
-        
         return ppg, y

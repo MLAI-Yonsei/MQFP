@@ -275,7 +275,6 @@ class SolverS2l(Solver):
                 model_config = model_configuration[data_name]
                 data_shape = model_config["data_dim"]
                 model = MQFP_wrapper(base_model, data_shape, model_config, self.config, stats, foldIdx)
-                import torch, math
 
                 def register_nan_hooks(model):
                     for name, p in model.named_parameters():
@@ -283,8 +282,7 @@ class SolverS2l(Solver):
                             p.register_hook(lambda g, n=name: \
                                 print(f"[NaN GRAD] {n}") if torch.isnan(g).any() or torch.isinf(g).any() else None)
 
-                # 학습 시작 직전에 단 한 번 호출
-                register_nan_hooks(model)
+                # register_nan_hooks(model)
 
                 for name, param in model.named_parameters():
                     train_list = ['prompt_learner', 'main_clf', 'penultimate_layer_prompt'] if self.config.train_head else ['prompt_learner', 'layer_wise_prompt']

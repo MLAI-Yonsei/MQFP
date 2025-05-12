@@ -214,42 +214,44 @@ class L2Prompt_stepbystep(nn.Module):
         # ---------------------------------------------------
         fft2pca_emb, fft_emb, _ = self.ppg_embedding_generator.gen_ppg_emb(
             x['ppg'], group_labels, pca_matrix, pca_mean, multi_query=False)
-        dbg("fft2pca_emb", fft2pca_emb, step)
+        # dbg("fft2pca_emb", fft2pca_emb, step)
 
         # ---------------------------------------------------  pca_proj
-        dbg("pca_proj.weight", self.pca_proj.weight, step)
+        # dbg("pca_proj.weight", self.pca_proj.weight, step)
+        # if self.pca_proj.weight.grad is not None:
+            # dbg("pca_proj.weight.grad", self.pca_proj.weight.grad, step)
 
         if not self.config.pass_pca:
             query = self.pca_proj(fft2pca_emb)
-            dbg("query_raw", query, step)
+            # dbg("query_raw", query, step)
 
             query = query.unsqueeze(1)
             query = F.layer_norm(query, query.shape[-1:])
-            dbg("query_norm", query, step)
+            # dbg("query_norm", query, step)
         else:
             query = fft_emb.unsqueeze(1)
             query = self.norm(query)
             query = self.fft_proj(query)
-            dbg("query_fftproj", query, step)
+            # dbg("query_fftproj", query, step)
             
         # ---------------------------------------------------  keys
-        dbg("keys", self.keys, step)
+        # dbg("keys", self.keys, step)
 
         d_k = query.size(-1)
         query_norm = F.layer_norm(query, query.shape[-1:])
         
-        register_nan_for_tensor(query_norm, "query_norm")     # ← ①
+        # register_nan_for_tensor(query_norm, "query_norm")     # ← ①
         d_k = query_norm.size(-1)
 
         qk = torch.einsum('bid,pid->bip', query_norm, self.keys) / math.sqrt(d_k)
-        register_nan_for_tensor(qk, "qk")                     # ← ②
+        # register_nan_for_tensor(qk, "qk")                     # ← ②
 
         # gumbel_samples = F.gumbel_softmax(qk, tau=1.0, hard=True)
         gumbel_samples = F.gumbel_softmax(qk, tau=2.0, hard=False)
-        register_nan_for_tensor(gumbel_samples, "gumbel")     # ← ③
+        # register_nan_for_tensor(gumbel_samples, "gumbel")     # ← ③
 
         top1_prompts = torch.einsum('bip,pid->bid', gumbel_samples, self.prompts)
-        register_nan_for_tensor(top1_prompts, "top1_prompts") # ← ④
+        # register_nan_for_tensor(top1_prompts, "top1_prompts") # ← ④
 
         if self.config.add_freq:
             # fft + propmt
@@ -305,7 +307,6 @@ class L2Prompt_stepbystep(nn.Module):
         entropy = -torch.sum(probabilities * torch.log(probabilities+1e-10))
         
         if self.prompts.grad is not None:
-            import pdb; pdb.set_trace()
             wandb.log({f'Prompts/gradient': wandb.Histogram(self.prompts.grad.cpu().numpy())})
             wandb.log({f'key/gradient': wandb.Histogram(self.keys.grad.cpu().numpy())})
 

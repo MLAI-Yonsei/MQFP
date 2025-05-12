@@ -31,6 +31,7 @@ def register_nan_for_tensor(tensor, name):
             if torch.isnan(g).any() or torch.isinf(g).any() else None)
     else:
         print(f"[NaN GRAD - act] {name} has no gradients.. right now")
+        
 def str2bool(v):
     if isinstance(v, bool): return v
     if v.lower() in ('yes', 'true', 't', 'y', '1'): return True

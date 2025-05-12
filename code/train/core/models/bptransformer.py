@@ -54,12 +54,11 @@ class BPTransformer(nn.Module):
         self.relu2 = nn.ReLU()
 
         self.main_clf = nn.Linear(hiddenDim * 2, 2)
-        self.penultimate_layer_prompt = PenultimateLayerPrompt()
+        print("penultimate layer prompt is not used")
+        # self.penultimate_layer_prompt = PenultimateLayerPrompt()
 
 
     def forward(self, src, tgt, demographicFeatures, srcMask=None, return_penultimate=False):
-        if srcMask is not None:
-            import pdb; pdb.set_trace()
         src = self.embedding(src)
         src = self.posEncoder(src)
 
@@ -81,7 +80,7 @@ class BPTransformer(nn.Module):
         
         output = self.main_clf(torch.cat([outputSbp, outputDbp], dim=-1))
         if return_penultimate:
-            return torch.cat([outputSbp, outputDbp], dim=-1)
+            return torch.cat([self.fcForSbp(combinedFeatures), self.fcForDbp(combinedFeatures)], dim=-1)
         else:
             return output
 
@@ -133,72 +132,72 @@ class BPTransformerRegressor(Regressor):
         x = self.model(src=src, tgt=tgt, demographicFeatures=demo, return_penultimate=False)      # forward
         return x
     
-def forward_w_add_prompts(
-        self,
-        src,
-        tgt,
-        demographicFeatures=None,
-        srcMask=None
-    ):
-    """
-    Forward pass with optional prompt injection.
-    Works exactly like the ResNet version:
-        - add_prompts == "every"  → inject after every encoder *and* decoder layer
-        - add_prompts == "final"  → inject once on the pooled feature vector
-    """
-    # --------------------------------------------------
-    # 1. Token + position encoding
-    # --------------------------------------------------
-    src = self.posEncoder(self.embedding(src))
-    tgt = self.posEncoder(self.embedding(tgt))
+    def forward_w_add_prompts(
+            self,
+            src,
+            tgt,
+            demographicFeatures=None,
+            srcMask=None
+        ):
+        """
+        Forward pass with optional prompt injection.
+        Works exactly like the ResNet version:
+            - add_prompts == "every"  → inject after every encoder *and* decoder layer
+            - add_prompts == "final"  → inject once on the pooled feature vector
+        """
+        # --------------------------------------------------
+        # 1. Token + position encoding
+        # --------------------------------------------------
+        src = self.posEncoder(self.embedding(src))
+        tgt = self.posEncoder(self.embedding(tgt))
 
-    # --------------------------------------------------
-    # 2-A. Prompt after **every** Transformer layer
-    # --------------------------------------------------
-    if self.add_prompts == "every":
-        # ----- Encoder -----
-        memory = src
-        for i, enc_layer in enumerate(self.transformer.encoder.layers):
-            memory = enc_layer(memory, srcMask)
-            memory = self.penultimate_layer_prompt(memory, i)      # inject
+        # --------------------------------------------------
+        # 2-A. Prompt after **every** Transformer layer
+        # --------------------------------------------------
+        if self.add_prompts == "every":
+            # ----- Encoder -----
+            memory = src
+            for i, enc_layer in enumerate(self.transformer.encoder.layers):
+                memory = enc_layer(memory, srcMask)
+                memory = self.penultimate_layer_prompt(memory, i)      # inject
 
-        # ----- Decoder -----
-        out = tgt
-        for j, dec_layer in enumerate(self.transformer.decoder.layers):
-            out = dec_layer(out, memory)
-            out = self.penultimate_layer_prompt(out, len(self.transformer.encoder.layers)+j)
+            # ----- Decoder -----
+            out = tgt
+            for j, dec_layer in enumerate(self.transformer.decoder.layers):
+                out = dec_layer(out, memory)
+                out = self.penultimate_layer_prompt(out, len(self.transformer.encoder.layers)+j)
 
-    # --------------------------------------------------
-    # 2-B. No per-layer prompts → fall back to vanilla forward
-    # --------------------------------------------------
-    else:
-        out = self.transformer(src=src, tgt=tgt, src_mask=srcMask)
+        # --------------------------------------------------
+        # 2-B. No per-layer prompts → fall back to vanilla forward
+        # --------------------------------------------------
+        else:
+            out = self.transformer(src=src, tgt=tgt, src_mask=srcMask)
 
-    # --------------------------------------------------
-    # 3. Pool the [CLS]-like token and (optionally) demo features
-    # --------------------------------------------------
-    pooled = out[:, 0, :]               # (N, d_model)
-    if demographicFeatures is not None:
-        combined = torch.cat((pooled, demographicFeatures), dim=-1)
-    else:
-        combined = pooled
+        # --------------------------------------------------
+        # 3. Pool the [CLS]-like token and (optionally) demo features
+        # --------------------------------------------------
+        pooled = out[:, 0, :]               # (N, d_model)
+        if demographicFeatures is not None:
+            combined = torch.cat((pooled, demographicFeatures), dim=-1)
+        else:
+            combined = pooled
 
-    # --------------------------------------------------
-    # 4. Prompt at the **final** stage, if requested
-    # --------------------------------------------------
-    if self.add_prompts == "final":
-        combined = self.penultimate_layer_prompt(combined, -1)
+        # --------------------------------------------------
+        # 4. Prompt at the **final** stage, if requested
+        # --------------------------------------------------
+        if self.add_prompts == "final":
+            combined = self.penultimate_layer_prompt(combined, -1)
 
-    # --------------------------------------------------
-    # 5. Task-specific heads
-    # --------------------------------------------------
-    sbp_feat = self.relu1(self.fcForSbp(combined))
-    dbp_feat = self.relu2(self.fcForDbp(combined))
+        # --------------------------------------------------
+        # 5. Task-specific heads
+        # --------------------------------------------------
+        sbp_feat = self.relu1(self.fcForSbp(combined))
+        dbp_feat = self.relu2(self.fcForDbp(combined))
 
-    penultimate = torch.cat([sbp_feat, dbp_feat], dim=-1)
-    logits = self.main_clf(penultimate)
+        penultimate = torch.cat([sbp_feat, dbp_feat], dim=-1)
+        logits = self.main_clf(penultimate)
 
-    return logits
+        return logits
 
     def training_step(self, batch, batch_idx):
         loss, pred_bp, t_abp, label = self._shared_step(batch)
