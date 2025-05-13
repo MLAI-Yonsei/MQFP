@@ -20,14 +20,24 @@ from models import BPTransformerRegressor
 # -----------------------------------------------------
 device        = "cuda:0"
 root_ckpt     = "/data1/bubble3jh/bp_L2P/code/train/pretrained_models"
-ds_tags = ["sensors", "ppgbp", "bcg"]
+ds_tags = ["vital_ecg", "mimic_ecg"]
 for ds_tag in ds_tags:
     backbone      = "bptransformer"
     cfg           = OmegaConf.load(f"core/config/dl/{backbone}/{backbone}_{ds_tag}.yaml")
     ckpt_tpl      = f"{root_ckpt}/{ds_tag}-{backbone}/fold{{}}.ckpt"
 
-    seq_len       = 256                # 시계열 길이
-    batch_size    = 1024        # ckpt의 test 배치 설정 그대로 사용
+    # ppgbp는 262, bcg sensors는 625, ecg는 1250
+    if ds_tag == "ppgbp":
+        seq_len       = 262                # 시계열 길이
+    elif ds_tag == "bcg":
+        seq_len       = 625                # 시계열 길이
+    elif ds_tag == "sensors":
+        seq_len       = 625                # 시계열 길이
+    elif ds_tag == "vital_ecg":
+        seq_len       = 1250                # 시계열 길이
+    elif ds_tag == "mimic_ecg":
+        seq_len       = 1250                # 시계열 길이
+    batch_size    = 128        # ckpt의 test 배치 설정 그대로 사용
 
     # -----------------------------------------------------
     # 2. Custom Dataset  (signal → PPG, abp_signal → ABP)

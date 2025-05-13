@@ -5,8 +5,8 @@ GPU_IDS=(0 1 2 3 4 5 6 7)
 IDX=0
 TRAINING_SCRIPT="train.py"
 
-TRANSFER_RANGE=("bcg" "ppgbp" "sensors")
-TARGET_RANGE=("bcg" "ppgbp" "sensors")
+TRANSFER_RANGE=("vital_ecg" "mimic_ecg")
+TARGET_RANGE=("vital_ecg" "mimic_ecg")
 BACKBONE_RANGE=("bptransformer") # "resnet1d"  "spectroresnet" "mlpbp" 
 SHOTS_RANGE=(5 10)
 
@@ -17,7 +17,7 @@ QK_SIM_COEFF_RANGE=(0)
 GLONORM_OPTIONS=("")
 SCALING_OPTIONS=("")
 LAMBDA_RANGE=(1)
-PCA_DIM_RANGE=(32 64)
+PCA_DIM_RANGE=(16 32 64)
 PROMPT_WEIGHTS_OPTIONS=("learnable")
 
 PASS_PCA_OPTIONS=("--pass_pca")

@@ -56,10 +56,10 @@ class BPTransformer(nn.Module):
 
         self.main_clf = nn.Linear(hiddenDim * 2, 2)
         # print("penultimate layer prompt is not used")
-        if wandb.config.method.startswith("prompt"):
-            self.penultimate_layer_prompt = PenultimateLayerPrompt()
-        else:
-            self.penultimate_layer_prompt = None
+        # if wandb.config.method.startswith("prompt"):
+        #     self.penultimate_layer_prompt = PenultimateLayerPrompt()
+        # else:
+        #     self.penultimate_layer_prompt = None
 
 
     def forward(self, src, tgt, demographicFeatures, srcMask=None, return_penultimate=False):
