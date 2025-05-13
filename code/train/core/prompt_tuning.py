@@ -177,9 +177,10 @@ class L2Prompt_stepbystep(nn.Module):
         nn.init.uniform_(self.keys,-1,1)
 
         # Prompts (Value)
-        self.prompts = nn.Parameter(torch.randn(self.num_pool, 1, self.model_config["data_dim"]))
         if config.add_freq:
             self.prompts = nn.Parameter(torch.randn(self.num_pool, 1, self.trunc_dim*2 if config.train_imag else self.trunc_dim))
+        else:        
+            self.prompts = nn.Parameter(torch.randn(self.num_pool, 1, self.model_config["data_dim"]))
         nn.init.uniform_(self.prompts,-1,1)
     
     # def forward(self, x, group_labels, pca_matrix, pca_mean):
@@ -195,7 +196,6 @@ class L2Prompt_stepbystep(nn.Module):
     #     if not self.config.pass_pca:
     #         query = self.pca_proj(fft2pca_emb)  # (B, D_q)
     #         query = query.unsqueeze(1)          # (B, 1, D_q)
-    #         query = F.layer_norm(query, query.shape[-1:])  # 안정화 추가
 
     #     elif self.config.pass_pca:
     #         query = fft_emb.unsqueeze(1)

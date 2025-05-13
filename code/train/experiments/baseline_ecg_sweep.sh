@@ -2,13 +2,13 @@
 
 LR_RANGE=(1e-1 1e-2 1e-3 1e-4)
 WD_RANGE=(1e-1 1e-2 1e-3)
-BACKBONES=("spectroresnet" "mlpbp" "bptransformer")
+BACKBONES=("resnet1d" "spectroresnet" "mlpbp" "bptransformer")
 BASELINES=("lp" "ft")
-TARGETS=("bcg" "ppgbp" "sensors")
-TRANSFERS=("bcg" "ppgbp" "sensors")
+TARGETS=("mimic_ecg" "vital_ecg")
+TRANSFERS=("mimic_ecg" "vital_ecg")
 BATCH_SIZES=(6 10)
 SHOTS=(5 10)
-GPU_IDS=(2 3 4 5 6 7)
+GPU_IDS=(1 2 3 4 5 6 7)
 EPOCHS=10
 METHOD="original"
 
@@ -16,7 +16,7 @@ declare -A CONFIG_BASE_PATH
 CONFIG_BASE_PATH["spectroresnet"]="core/config/dl/spectroresnet"
 CONFIG_BASE_PATH["mlpbp"]="core/config/dl/mlpbp"
 CONFIG_BASE_PATH["bptransformer"]="core/config/dl/bptransformer"
-
+CONFIG_BASE_PATH["resnet1d"]="core/config/dl/resnet"
 job_count=0
 
 for backbone in "${BACKBONES[@]}"; do
@@ -29,7 +29,11 @@ for backbone in "${BACKBONES[@]}"; do
           continue
         fi
 
-        config_file="${config_dir}/${backbone}_${transfer}.yaml"
+        if [ "$backbone" == "resnet1d" ]; then
+          config_file="core/config/dl/resnet/resnet_${transfer}.yaml"
+        else
+          config_file="${config_dir}/${backbone}_${transfer}.yaml"
+        fi
 
         for lr in "${LR_RANGE[@]}"; do
           for wd in "${WD_RANGE[@]}"; do

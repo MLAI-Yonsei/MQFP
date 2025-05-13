@@ -1,7 +1,7 @@
 #!/bin/bash
 cd ..
 
-GPU_IDS=(2 3 4 5 6 7)
+GPU_IDS=(0 1 2 3 4 5 6 7)
 IDX=0
 TRAINING_SCRIPT="train.py"
 
@@ -20,18 +20,18 @@ LAMBDA_RANGE=(1)
 PCA_DIM_RANGE=(16)
 PROMPT_WEIGHTS_OPTIONS=("learnable")
 
-PASS_PCA_OPTIONS=("" "--pass_pca")
-HEAD_OPTIONS=("" '--train_head' '--train_head --reset_head')
-IMAG_ON=("" "--train_imag")
+PASS_PCA_OPTIONS=("--pass_pca")
+HEAD_OPTIONS=("" "--train_head")
+IMAG_ON=("--train_imag")
 LR_RANGE=(1e-1 1e-2 1e-3 1e-4)
 WD_RANGE=(1e-1 1e-2 1e-3)
 TRUNC_DIM=(25 50)
-BATCHSIZE_RANGE=(6 10)
+BATCHSIZE_RANGE=(6)
 QUERY_DIM_RANGE=(64)
-GLOBAL_COEFF_RANGE=(1 10)
-POOL_RANGE=(4 10 20)
+GLOBAL_COEFF_RANGE=(1)
+POOL_RANGE=(4)
 EMB_DIFF_OPTIONS=('--use_emb_diff')
-DIFF_LOSS_WEIGHT_RANGE=(1.0 0.1)
+DIFF_LOSS_WEIGHT_RANGE=(1.0)
 
 METHOD_OPTIONS=("--stepbystep")
 ADD_FREQ=("--add_freq")

@@ -8,6 +8,7 @@ from torch import Tensor
 import math
 from typing import Any, Dict
 from .resnet1d import PenultimateLayerPrompt
+import wandb
 
 coloredlogs.install()
 logger = logging.getLogger(__name__)  
@@ -55,7 +56,10 @@ class BPTransformer(nn.Module):
 
         self.main_clf = nn.Linear(hiddenDim * 2, 2)
         # print("penultimate layer prompt is not used")
-        self.penultimate_layer_prompt = PenultimateLayerPrompt()
+        if wandb.config.method.startswith("prompt"):
+            self.penultimate_layer_prompt = PenultimateLayerPrompt()
+        else:
+            self.penultimate_layer_prompt = None
 
 
     def forward(self, src, tgt, demographicFeatures, srcMask=None, return_penultimate=False):
