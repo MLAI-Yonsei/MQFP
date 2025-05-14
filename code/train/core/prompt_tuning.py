@@ -226,7 +226,7 @@ class L2Prompt_stepbystep(nn.Module):
             # dbg("query_raw", query, step)
 
             query = query.unsqueeze(1)
-            query = F.layer_norm(query, query.shape[-1:])
+            # query = F.layer_norm(query, query.shape[-1:])
             # dbg("query_norm", query, step)
         else:
             query = fft_emb.unsqueeze(1)
@@ -247,11 +247,9 @@ class L2Prompt_stepbystep(nn.Module):
         # register_nan_for_tensor(qk, "qk")                     # ← ②
 
         # gumbel_samples = F.gumbel_softmax(qk, tau=1.0, hard=True)
-        gumbel_samples = F.gumbel_softmax(qk, tau=2.0, hard=False)
-        # register_nan_for_tensor(gumbel_samples, "gumbel")     # ← ③
+        gumbel_samples = F.gumbel_softmax(qk, tau=1.0, hard=True)
 
         top1_prompts = torch.einsum('bip,pid->bid', gumbel_samples, self.prompts)
-        # register_nan_for_tensor(top1_prompts, "top1_prompts") # ← ④
 
         if self.config.add_freq:
             # fft + propmt
@@ -262,13 +260,12 @@ class L2Prompt_stepbystep(nn.Module):
             # 1번째부터 trunc_dim+1 번째까지 값을 넣고 나머지에 zero padding
             truncated_prompt_real = torch.zeros_like(x['ppg'], dtype=torch.float)
             truncated_prompt_imag = torch.zeros_like(x['ppg'], dtype=torch.float)
-            
             truncated_prompt_real[:,:,1:self.trunc_dim+1] = self.config.global_coeff*top1_prompts[:,:,:self.trunc_dim]
             if self.config.sym_prompt:
                 # truncated_prompt_real[:,:,-self.trunc_dim:] = self.config.global_coeff*top1_prompts[:,:,:self.trunc_dim]
                 flipped_prompts = torch.flip(top1_prompts[:,:,:self.trunc_dim], dims=[-1])
                 truncated_prompt_real[:,:,-self.trunc_dim:] = self.config.global_coeff * flipped_prompts
-                
+            
             prompt_add_fft_real = freq_denorm(ppg_fft_real + truncated_prompt_real, freq_real_min, freq_real_max)
 
             if self.config.train_imag:

@@ -30,12 +30,12 @@ from core.loaders import *
 from core.solver_s2s import Solver
 from core.utils import (
     get_nested_fold_idx, get_ckpt, cal_metric, cal_statistics, mat2df, to_group,
-    remove_outlier, group_annot, group_count, group_shot, transferring, dbg
+    remove_outlier, group_annot, group_count, group_shot, transferring
 )
 from core.load_model import model_fold
 from core.model_config import model_configuration
 from core.models import *
-from core.prompt_tuning import MQFP_wrapper
+from core.prompt_tuning import Custom_model
 
 import pdb
 
@@ -46,85 +46,56 @@ logger = logging.getLogger(__name__)
 
 #%%
 class SolverS2l(Solver):
-    def __init__(self, config):
-        super(SolverS2l, self).__init__(config)
-        self.config = config
-        self.config.exp.data_name = self.config.target
-        
+    # def __init__(self, config, transfer):
+    #     super(SolverS2l, self).__init__()
+    #     self.transfer
     def _get_model(self, ckpt_path_abs=None, fold=None):
         model = None
         if self.config.transfer:
-            backbone_name = f"{self.config.transfer}-{self.config.exp.model_type}"
-            if self.config.method == "original": # TODO
-                if self.config.baseline == "scratch":
-                    if self.config.exp.model_type == "resnet1d":
+            if self.config.exp.model_type == "resnet1d":
+                if self.config.transfer == "uci2":
+                    fold=0
+                backbone_name = f"{self.config.transfer}-{self.config.exp.model_type}"
+                if self.config.method == "original": # TODO
+                    if self.config.scratch:
                         self.transfer_config_path = f"./core/config/dl/resnet/resnet_{self.config.transfer}.yaml"
-                    elif self.config.exp.model_type == "spectroresnet":
-                        self.transfer_config_path = f"./core/config/dl/spectroresnet/spectroresnet_{self.config.transfer}.yaml"
-                    elif self.config.exp.model_type == "mlpbp":
-                        self.transfer_config_path = f"./core/config/dl/mlpbp/mlpbp_{self.config.transfer}.yaml"
-                    elif self.config.exp.model_type == "bptransformer":
-                        self.transfer_config_path = f"./core/config/dl/bptransformer/bptransformer_{self.config.transfer}.yaml"
-                    self.transfer_config = OmegaConf.load(self.transfer_config_path)
-                    self.transfer_config = transferring(self.config, self.transfer_config)
-                    if self.config.exp.model_type == "resnet1d":
-                        model = Resnet1dRegressor_original(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
-                    elif self.config.exp.model_type == "spectroresnet":
-                        model = SpectroResnet(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
-                    elif self.config.exp.model_type == "mlpbp":
-                        model = MLPBP(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
-                    elif self.config.exp.model_type == "bptransformer":
-                        model = BPTransformerRegressor(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
+                        self.transfer_config = OmegaConf.load(self.transfer_config_path)
+                        self.transfer_config = transferring(self.config, self.transfer_config)
+                        model = Resnet1d_original(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
+                    else:
+                        model = Resnet1d_original.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                        model.param_model.lr = self.config.param_model.lr
+                        model.param_model.wd = self.config.param_model.wd
+                        model.param_model.batch_size = self.config.param_model.batch_size
                 else:
-                    print(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
-                    if self.config.exp.model_type == "resnet1d":
-                        model = Resnet1dRegressor_original.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
-                    elif self.config.exp.model_type == "spectroresnet":
-                        model = SpectroResnet.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
-                    elif self.config.exp.model_type == "mlpbp":
-                        model = MLPBP.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
-                    elif self.config.exp.model_type == "bptransformer":
-                        model = BPTransformerRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
-                    model.param_model.lr = self.config.param_model.lr
-                    model.param_model.wd = self.config.param_model.wd
-                    model.param_model.batch_size = self.config.param_model.batch_size
+                    model = Resnet1d.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
+                # Initialize Classifier
+                if self.config.lp or self.config.reset_head:
+                    model.model.main_clf = nn.Linear(in_features=model.model.main_clf.in_features,
+                                                    out_features=model.model.main_clf.out_features,
+                                                    bias=model.model.main_clf.bias is not None)
+                print(f"####### Load {self.config.exp.model_type} backbone model pre-trained by {self.config.transfer} #######")
             else:
-                if self.config.exp.model_type == "resnet1d":
-                    model = Resnet1dRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
-                elif self.config.exp.model_type == "spectroresnet":
-                    model = SpectroResnet.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
-                elif self.config.exp.model_type == "mlpbp":
-                    model = MLPBP.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
-                elif self.config.exp.model_type == "bptransformer":
-                    model = BPTransformerRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", strict=False)
-            # Initialize Classifier
-            if self.config.baseline == "lp" or self.config.reset_head:
-                model.model.main_clf = nn.Linear(in_features=model.model.main_clf.in_features,
-                                                out_features=model.model.main_clf.out_features,
-                                                bias=model.model.main_clf.bias is not None)
-            print(f"####### Load {self.config.exp.model_type} backbone model pre-trained by {self.config.transfer} #######")
-
+                NotImplementedError
             return model
         if not ckpt_path_abs:
             if self.config.exp.model_type == "resnet1d":
                 if self.config.method == "original":
-                    model = Resnet1dRegressor_original(self.config.param_model, random_state=self.config.exp.random_state)
+                    model = Resnet1d_original(self.config.param_model, random_state=self.config.exp.random_state)
                 else:
-                    model = Resnet1dRegressor(self.config.param_model, random_state=self.config.exp.random_state)
+                    model = Resnet1d(self.config.param_model, random_state=self.config.exp.random_state)
             elif self.config.exp.model_type == "spectroresnet":
                 model = SpectroResnet(self.config.param_model, random_state=self.config.exp.random_state)
             elif self.config.exp.model_type == "mlpbp":
                 model = MLPBP(self.config.param_model, random_state=self.config.exp.random_state)
-            elif self.config.exp.model_type == "bptransformer":
-                model = BPTransformerRegressor(self.config.param_model, random_state=self.config.exp.random_state)
             else:
                 model = eval(self.config.exp.model_type)(self.config.param_model, random_state=self.config.exp.random_state)
             return model
         else:
             if self.config.exp.model_type == "resnet1d":
-                model = Resnet1dRegressor.load_from_checkpoint(ckpt_path_abs)
+                model = Resnet1d.load_from_checkpoint(ckpt_path_abs)
                 if self.config.method == "original":
-                    model = Resnet1dRegressor_original.load_from_checkpoint(ckpt_path_abs)
+                    model = Resnet1d_original.load_from_checkpoint(ckpt_path_abs)
             elif self.config.exp.model_type == "spectroresnet":
                 model = SpectroResnet.load_from_checkpoint(ckpt_path_abs)
             elif self.config.exp.model_type == "mlpbp":
@@ -215,12 +186,13 @@ class SolverS2l(Solver):
         
         #--- Data module
         dm = self._get_loader()
+
         #--- Load data
         if self.config.exp.subject_dict.endswith('.pkl'):
             all_split_df = joblib.load(self.config.exp.subject_dict)
         elif self.config.exp.subject_dict.endswith('fold'):
             all_split_df = [mat2df(loadmat(f"{self.config.exp.subject_dict}_{i}.mat")) for i in range(self.config.exp.N_fold)]
-        
+
         #####################################################
         #####################################################
         all_split_df = remove_outlier(all_split_df)
@@ -237,9 +209,6 @@ class SolverS2l(Solver):
             # get_nested_fold_idx : [[0,1,2],[3],[4]] ## Generator
             if (self.config.exp.cv=='HOO') and (foldIdx==1):  break
             #if foldIdx==1: break
-
-            # train_df = pd.concat((np.array(all_split_df)[folds_train]))
-            # Concatenate training dataframes using for loop
             train_df = pd.concat(np.array(all_split_df)[folds_train])
             val_df = pd.concat(np.array(all_split_df)[folds_val])
             if self.config.shots: # train and validate with few-shot
@@ -261,12 +230,12 @@ class SolverS2l(Solver):
                 ck_path = os.path.join(self.config.root_dir, "models", model_fold[self.config.backbone][data_name][self.config.seed][foldIdx])  # yt
                 # ck_path = os.path.join(self.config.root_dir, "models", model_fold[data_name][self.config.seed][foldIdx])                      # yewon
                 if self.config.transfer:
-                    base_model = self._get_model(fold=foldIdx)
+                    res_model = self._get_model(fold=foldIdx)
                 else:
-                    base_model = self._get_model(ck_path)
+                    res_model = self._get_model(ck_path)
                 model_config = model_configuration[data_name]
                 data_shape = model_config["data_dim"]
-                model = MQFP_wrapper(base_model, data_shape, model_config, self.config, stats, foldIdx)
+                model = Custom_model(res_model, data_shape, model_config, self.config, stats, foldIdx)
 
                 for name, param in model.named_parameters():
                     train_list = ['prompt_learner', 'main_clf', 'penultimate_layer_prompt'] if self.config.train_head else ['prompt_learner', 'layer_wise_prompt']
@@ -274,6 +243,13 @@ class SolverS2l(Solver):
                         param.requires_grad_(True)
                     else:
                         param.requires_grad_(False)
+
+                enabled = set()
+                
+                for name, param in model.named_parameters():
+                    if param.requires_grad:
+                        enabled.add(name)
+                print(f"Parameters to be updated: {enabled}")
             
             if self.config.method == "original":       
                 if self.config.transfer:
@@ -281,23 +257,6 @@ class SolverS2l(Solver):
                 else:         
                     model = self._get_model()
                     
-                for name, param in model.named_parameters():
-                    if self.config.baseline == "lp":
-                        # train only main_clf
-                        if 'main_clf' in name:
-                            param.requires_grad_(True)
-                        else:
-                            param.requires_grad_(False)
-                    elif self.config.baseline == "ft":
-                        # train all parameters
-                        param.requires_grad_(True)
-
-            enabled = set()
-            
-            for name, param in model.named_parameters():
-                if param.requires_grad:
-                    enabled.add(name)
-            print(f"Parameters to be updated: {enabled}")
             #####################################################
             #####################################################
             # Define optimizer with different learning rates for prompt_learner and other parameters
@@ -316,6 +275,7 @@ class SolverS2l(Solver):
                     dirpath=f"{artifact_uri}/restored_model_checkpoint"
                 )
                 trainer = MyTrainer(**dict(self.config.param_trainer), callbacks=[early_stop_callback, checkpoint_callback, lr_logger])
+                
                 # train
                 trainer.fit(model, dm)
                 
@@ -346,12 +306,10 @@ class SolverS2l(Solver):
                     torch.save(prompted_input, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_prompted_inputs.pt')
                     torch.save(hidden_embs, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_hidden_embs.pt')
                     torch.save(prompt_hist, f'./results/embeddings/{file_name}_train_head_{self.config.train_head}_prompt_hist.pt')
-                    
+                
                 # save updated model
                 trainer.model = model
                 trainer.save_checkpoint(ckpt_path_abs)
-                if self.config.save_for_pretraining:
-                    trainer.save_checkpoint(f'/data1/bubble3jh/bp_L2P/code/train/pretrained_models/{self.config.target}-{self.config.backbone}/fold{foldIdx}.ckpt')
 
                 # clear redundant mlflow models (save disk space)
                 redundant_model_path = Path(artifact_uri)/'restored_model_checkpoint'
@@ -427,7 +385,7 @@ class SolverS2l(Solver):
         if self.config.save_result:
             flat_list = reduce(operator.concat, folds_results)
             df_output = pd.DataFrame(flat_list)
-            df_output.to_csv(f"./results/errors_{self.config.transfer}_{self.config.target}_shot{self.config.shots}_train_head_{self.config.train_head}_sym_{self.config.sym_prompt}_ours.csv", index=False)
+            df_output.to_csv(f"./results/errors_{self.config.transfer}_{self.config.target}_shot{self.config.shots}_train_head_{self.config.train_head}_sym_{self.config.sym_prompt}_numpool_{self.config.num_pool}ours.csv", index=False)
 
         return out_metric
 
@@ -504,8 +462,8 @@ class SolverS2l(Solver):
                     regressor = self._get_model(ckpt_path_abs) # Load Model # TODO
                 model_config = model_configuration[self.config.backbone][data_name] # Load pre-trained model config
                 data_shape = model_config["data_dim"] 
-                model = MQFP_wrapper(regressor, data_shape, model_config, self.config, stats, foldIdx)
-                #model = MQFP_wrapper.load_from_checkpoint(ckpt_path_abs) # Call Prompt Model 
+                model = Custom_model(regressor, data_shape, model_config, self.config, stats, foldIdx)
+                #model = Custom_model.load_from_checkpoint(ckpt_path_abs) # Call Prompt Model 
                 
                 model.load_state_dict(torch.load(ckpt_path_abs)["state_dict"])
 
@@ -553,5 +511,3 @@ class SolverS2l(Solver):
         joblib.dump(results, self.config.param_test.save_path)
 
         print(out_metric)
-
-# %%

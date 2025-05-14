@@ -2,10 +2,10 @@
 
 LR_RANGE=(1e-1 1e-2 1e-3 1e-4)
 WD_RANGE=(1e-1 1e-2 1e-3)
-BACKBONES=("resnet1d" "spectroresnet" "mlpbp" "bptransformer")
+BACKBONES=("spectroresnet" "mlpbp")
 BASELINES=("lp" "ft")
-TARGETS=("mimic_ecg" "vital_ecg")
-TRANSFERS=("mimic_ecg" "vital_ecg")
+TARGETS=("bcg" "ppgbp" "sensors")
+TRANSFERS=("bcg" "ppgbp" "sensors")
 BATCH_SIZES=(6)
 SHOTS=(5 10)
 GPU_IDS=(0 1 2 3 4 5 6 7)

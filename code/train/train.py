@@ -262,15 +262,15 @@ if __name__ == '__main__':
     
     if not args.ignore_wandb:
         import wandb
-        wandb.init(entity='l2p_bp', project=f"{args.wandb_project_name}_{args.shots}shot_backbone{args.backbone}", group=group_name)
+        wandb.init(entity='l2p_bp', project=f"{args.wandb_project_name}_new", group=group_name)
         lr = args.lr
         wd = args.wd
         run_name = f'seed:{args.seed}-lr:{lr}-wd:{wd}'
         wandb.run.name = run_name
         wandb.config.update(args)
 
-        wandb.save('./core/prompt_tuning.py')
-        wandb.save('./core/solver_s2l.py')
+        # wandb.save('./core/prompt_tuning.py')
+        # wandb.save('./core/solver_s2l.py')
         
     main(parser.parse_args())
 
