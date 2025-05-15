@@ -137,10 +137,7 @@ def show_results(shots, sort_by="spdp", chunk_size=3):
 
     # 1) best run 인덱스 찾기
     df_metric = df[df.metric == sort_by]
-    if sort_by == "spdp":
-        best_idx = df_metric.groupby(["label","transfer_target"])["value"].idxmin()
-    else:
-        best_idx = df_metric.groupby(["label","transfer_target"])["value"].idxmax()
+    best_idx = df_metric.groupby(["label","transfer_target"])["value"].idxmin()
 
     best = df_metric.loc[best_idx, ["label","transfer_target","run_id","value"]].copy()
     best = best.rename(columns={"value": sort_by})
@@ -150,7 +147,7 @@ def show_results(shots, sort_by="spdp", chunk_size=3):
     df_other = df[df.metric==other][["run_id","value"]].set_index("run_id")
     best[other] = best["run_id"].map(df_other["value"])
 
-    # 3) pivot → 멀티인덱스 컬럼: (metric, transfer_target)
+    # 3) pivot → 멀티인덱스 컬럼: (transfer_target, metric)
     pivot = best.set_index(["label","transfer_target"])[[sort_by, other]]
     pivot = pivot.unstack("transfer_target")
 
@@ -159,7 +156,9 @@ def show_results(shots, sort_by="spdp", chunk_size=3):
     cols = []
     for tt in TRANSFER_TARGET_ORDER:
         for m in metrics:
-            cols.append((m, tt))
+            cols.append((tt, m))
+    # pivot.columns: (metric, transfer_target) → (transfer_target, metric)으로 변환
+    pivot.columns = [(tt, m) for m, tt in pivot.columns]
     pivot = pivot.reindex(columns=pd.MultiIndex.from_tuples(cols), fill_value=float("nan"))
 
     # 5) 행 순서 고정
@@ -174,24 +173,38 @@ def show_results(shots, sort_by="spdp", chunk_size=3):
 
     for chunk in chunks:
         # 해당 chunk에 속한 컬럼만 골라서
-        sub = pivot.loc[:, pd.IndexSlice[metrics, chunk]].copy()
+        sub = pivot.loc[:, pd.IndexSlice[chunk, metrics]].copy()
 
-        # 7) 각 컬럼별 1등 이모지 추가
-        for m in metrics:
-            for tt in chunk:
-                col = (m, tt)
+        # 7) 각 컬럼별 1, 2등 이모지 추가
+        for tt in chunk:
+            for m in metrics:
+                col = (tt, m)
                 vals = sub[col].astype(float)
-                best_val = vals.min() if m=="spdp" else vals.max()
-                # 문자열 포맷 + emoji
-                sub[col] = vals.apply(
-                    lambda x: f"{x:.2f}" + (" 🥇" if x == best_val else "")
-                )
 
+                # NaN 제거 후 정렬된 고유 값 추출
+                sorted_vals = vals.dropna().unique()
+                sorted_vals.sort()  # 오름차순 기준: 낮을수록 좋음
+
+                best_val = sorted_vals[0] if len(sorted_vals) > 0 else None
+                second_val = sorted_vals[1] if len(sorted_vals) > 1 else None
+
+                def add_emoji(x):
+                    if pd.isna(x):
+                        return "nan"
+                    elif x == best_val:
+                        return f"{x:.2f} 🥇"
+                    elif x == second_val:
+                        return f"{x:.2f} 🥈"
+                    else:
+                        return f"{x:.2f}"
+
+                sub[col] = vals.apply(add_emoji)
+        
         # 8) 표 출력
         header = f"\n=== Shots: {shots} | best by {sort_by} | targets={chunk} ==="
         print(header)
-        print(tabulate(sub, headers="keys", tablefmt="grid"))
+        print(tabulate(sub, headers="keys", tablefmt="grid"))    
 
 if __name__=="__main__":
     show_results(5, sort_by="spdp", chunk_size=2)
-    # show_results(5, sort_by="gal", chunk_size=2)
+    show_results(10, sort_by="spdp", chunk_size=2)
