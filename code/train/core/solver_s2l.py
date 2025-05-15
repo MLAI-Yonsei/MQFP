@@ -80,9 +80,35 @@ class SolverS2l(Solver):
                     if self.config.exp.model_type == "resnet1d":
                         model = Resnet1dRegressor_original.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
                     elif self.config.exp.model_type == "spectroresnet":
-                        model = SpectroResnet.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                        if self.config.target.endswith("ecg"):
+                            model = SpectroResnet.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                        else:
+                            checkpoint = torch.load(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", map_location="cpu")
+                            keys_to_remove = [k for k in checkpoint['state_dict'] if 'mid_spec_layers.0.mlp' in k]
+                            for k in keys_to_remove:
+                                del checkpoint['state_dict'][k]
+                            self.transfer_config = OmegaConf.load(f"./core/config/dl/spectroresnet/spectroresnet_{self.config.transfer}.yaml")
+                            self.transfer_config = transferring(self.config, self.transfer_config)
+                            model = SpectroResnet(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
+                            model.load_state_dict(checkpoint['state_dict'], strict=False)
                     elif self.config.exp.model_type == "mlpbp":
-                        model = MLPBP.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                        if self.config.target.endswith("ecg"):
+                            model = MLPBP.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
+                        else:
+                            checkpoint = torch.load(f"pretrained_models/{backbone_name}/fold{fold}.ckpt", map_location="cpu")
+                            self.transfer_config = OmegaConf.load(f"./core/config/dl/mlpbp/mlpbp_{self.config.transfer}.yaml")
+                            self.transfer_config = transferring(self.config, self.transfer_config)
+                            model = MLPBP(self.transfer_config.param_model, random_state=self.transfer_config.exp.random_state)
+                            model_state_dict = model.state_dict()
+                            keys_to_remove = []
+                            for k in checkpoint['state_dict']:
+                                if k in model_state_dict and checkpoint['state_dict'][k].shape != model_state_dict[k].shape:
+                                    keys_to_remove.append(k)
+
+                            for k in keys_to_remove:
+                                print(f"[!] Removing mismatched key: {k}, shape ckpt={checkpoint['state_dict'][k].shape}, model={model_state_dict[k].shape}")
+                                del checkpoint['state_dict'][k]
+                            model.load_state_dict(checkpoint['state_dict'], strict=False)
                     elif self.config.exp.model_type == "bptransformer":
                         model = BPTransformerRegressor.load_from_checkpoint(f"pretrained_models/{backbone_name}/fold{fold}.ckpt")
                     model.param_model.lr = self.config.param_model.lr

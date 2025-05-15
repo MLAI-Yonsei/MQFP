@@ -1,111 +1,197 @@
-import wandb
-import pandas as pd
 import os
+import pickle
+import pandas as pd
+import wandb
 from tabulate import tabulate
+from datetime import datetime, timezone
 
-wandb.login()
-api = wandb.Api(timeout=60)
+# --- 설정 --------------------------------------------------
+PROJECT    = "l2p_bp/mqfp_new"
+CACHE_FILE = "runs_records.pkl"
 
-# 구성
-shots_list = [5, 10]
-backbones = ["mlpbp", "spectroresnet", "bptransformer"]
-cache_file = "./wandb_runs_bestonly.parquet"
+VALID_PAIRS = [
+    ("ppgbp","bcg"), ("ppgbp","sensors"), ("bcg","ppgbp"), ("sensors","ppgbp"),
+    ("bcg","sensors"), ("sensors","bcg"),
+    ("mimic_ecg","vital_ecg"), ("vital_ecg","mimic_ecg")
+]
+# -----------------------------------------------------------
 
-# 캐시 불러오기
-if os.path.exists(cache_file):
-    print("📦 Using cached results...")
-    df = pd.read_parquet(cache_file)
-else:
-    print("📡 Fetching results from WandB...")
-    rows = []
+api = wandb.Api()
 
-    for shots in shots_list:
-        for backbone in backbones:
-            project_name = f"l2p_bp/mqfp_{shots}shot_backbone{backbone}"
-            try:
-                runs = api.runs(project_name, filters={
-                    "summary.spdp": {"$ne": None},
-                    "summary.gal": {"$ne": None}
-                })
-            except Exception as e:
-                print(f"❌ Failed to load project {project_name}: {e}")
+def load_cache():
+    if not os.path.exists(CACHE_FILE):
+        return [], None
+    data = pickle.load(open(CACHE_FILE, "rb"))
+    last = datetime.fromisoformat(data["last_fetch"])
+    return data["records"], last
+
+def save_cache(records, last_fetch):
+    data = {
+        "records":    records,
+        "last_fetch": last_fetch.astimezone(timezone.utc).isoformat()
+    }
+    pickle.dump(data, open(CACHE_FILE, "wb"), protocol=pickle.HIGHEST_PROTOCOL)
+
+def get_latest_run_time():
+    """W&B에서 valid_pairs 전체 중 최신 한 건만 가져와서 createdAt 반환"""
+    or_filters = [{"$and":[{"config.transfer":t},{"config.target":u}]} 
+                  for t,u in VALID_PAIRS]
+    latest = next(api.runs(
+        PROJECT,
+        filters={"$or": or_filters},
+        order="-createdAt",
+        per_page=1
+    ), None)
+
+    if latest is None:
+        return None
+    # run.created_at은 ISO 문자열
+    iso = latest.created_at.replace("Z", "+00:00")
+    return datetime.fromisoformat(iso)
+
+def fetch_new_records(existing, last_fetch):
+    """last_fetch 이후에 생성된 런만 가져와서 records에 append"""
+    or_filters = [{"$and":[{"config.transfer":t},{"config.target":u}]} 
+                  for t,u in VALID_PAIRS]
+    # AND 조합으로 createdAt 필터까지
+    filters = {"$and": [
+        {"$or": or_filters},
+        {"createdAt": {"$gt": last_fetch.astimezone(timezone.utc).isoformat()}}
+    ]}
+
+    runs = api.runs(PROJECT, filters=filters, per_page=500)
+    new_recs = []
+    max_fetch = last_fetch
+
+    for run in runs:
+        created = datetime.fromisoformat(run.created_at.replace("Z","+00:00"))
+        tran, tgt = run.config.get("transfer"), run.config.get("target")
+        if (tran,tgt) not in VALID_PAIRS:
+            continue
+
+        for metric in ("gal","spdp"):
+            val = run.summary.get(metric)
+            if val is None:
                 continue
+            new_recs.append({
+                "run_id":     run.id,
+                "created_at": created,
+                "backbone":   run.config.get("backbone",""),
+                "method":     run.config.get("method",""),
+                "transfer":   tran,
+                "target":     tgt,
+                "metric":     metric,
+                "value":      val,
+                "shots":      run.config.get("shots","N/A"),
+                "train_head": run.config.get("train_head","N/A"),
+                "baseline":   run.config.get("baseline","N/A")
+            })
+        if created > max_fetch:
+            max_fetch = created
 
-            for run in runs:
-                transfer = run.config.get("transfer")
-                target = run.config.get("target")
-                method = run.config.get("method", "original")
+    return existing + new_recs, max_fetch
 
-                if not transfer or not target:
-                    continue
+# --- 메인 ---------------------------------------------------
+records, last_fetch = load_cache()
+print(f"Loaded {len(records)} records; last fetch at {last_fetch}")
 
-                row = {
-                    "shots": shots,
-                    "backbone": backbone,
-                    "transfer": transfer,
-                    "target": target,
-                    "spdp": run.summary.get("spdp"),
-                    "gal": run.summary.get("gal"),
-                    "method": method,
-                }
+latest_time = get_latest_run_time()
+if latest_time is None:
+    print("No runs at all in project.")
+elif last_fetch and latest_time <= last_fetch:
+    print("No new runs since last fetch – skipping W&B query.")
+else:
+    # 신규 런이 있으니 createdAt 필터로 최소한만 fetch
+    records, new_fetch = fetch_new_records(records, last_fetch or datetime.min.replace(tzinfo=timezone.utc))
+    print(f"Fetched {len(records) - len(records):d} new records; new last_fetch={new_fetch}")
+    save_cache(records, new_fetch)
 
-                rows.append(row)
-                if backbone == "bptransformer" and method == "prompt_global":
-                    row_ours = row.copy()
-                    row_ours["backbone"] = "bptransformer+ours"
-                    rows.append(row_ours)
+# 파일 최상단에 한 줄 추가
+TRANSFER_TARGET_ORDER = [
+    "ppgbp→bcg",
+    "sensors→bcg",
+    "bcg→ppgbp",
+    "sensors→ppgbp",
+    "bcg→sensors",
+    "ppgbp→sensors",
+    "vital_ecg→mimic_ecg",
+    "mimic_ecg→vital_ecg"
+]
 
-    df = pd.DataFrame(rows)
-    df.to_parquet(cache_file)
-    print(f"✅ Saved to cache: {cache_file}")
+def show_results(shots, sort_by="spdp", chunk_size=3):
+    """
+    shots: int
+    sort_by: "spdp" (낮을수록 좋음) 또는 "gal" (높을수록 좋음)
+    chunk_size: 한 번에 보여줄 transfer_target 수
+    """
+    assert sort_by in ("spdp", "gal")
 
-# best spdp/gal filtering
-def best_by_metric(df, metric):
-    return (
-        df.sort_values(by=metric)
-        .dropna(subset=[metric])
-        .groupby(["shots", "backbone", "transfer", "target"], as_index=False)
-        .first()
-    )
+    df = pd.DataFrame(records)
+    df = df[df.shots == shots]
 
-best_spdp = best_by_metric(df, "spdp")
-best_gal = best_by_metric(df, "gal")
+    # label 벡터화
+    mask = (df.backbone=="bptransformer") & (df.method=="prompt_global")
+    df["label"] = df.backbone
+    df.loc[mask, "label"] = "bpt+ours"
+    df["transfer_target"] = df.transfer + "→" + df.target
 
-# 보기 좋게 출력
-def print_filtered_table(df, value_column, shots, title):
-    df_sub = df[df["shots"] == shots]
-    df_pivot = df_sub.pivot(index="backbone", columns=["transfer", "target"], values=value_column)
-    df_pivot["avg"] = df_pivot.min(axis=1, skipna=True)
-    df_pivot = df_pivot.sort_values(by="avg").drop(columns="avg")
-    order = ["mlpbp", "spectroresnet", "bptransformer", "bptransformer+ours"]
-    df_pivot = df_pivot.reindex(order)
-    print(f"\n📊 {title} (shots={shots}, lower is better):\n")
-    print(tabulate(df_pivot.round(4), headers="keys", tablefmt="github"))
+    # 1) best run 인덱스 찾기
+    df_metric = df[df.metric == sort_by]
+    if sort_by == "spdp":
+        best_idx = df_metric.groupby(["label","transfer_target"])["value"].idxmin()
+    else:
+        best_idx = df_metric.groupby(["label","transfer_target"])["value"].idxmax()
 
-# 출력
-print_filtered_table(best_spdp, "spdp", 5, "Best SPDP (SBP+DBP)")
-print_filtered_table(best_spdp, "spdp", 10, "Best SPDP (SBP+DBP)")
-print_filtered_table(best_gal, "gal", 5, "Best GAL (SBP+DBP GAL)")
-print_filtered_table(best_gal, "gal", 10, "Best GAL (SBP+DBP GAL)")
+    best = df_metric.loc[best_idx, ["label","transfer_target","run_id","value"]].copy()
+    best = best.rename(columns={"value": sort_by})
 
-# Best count summary
-def print_best_counts(df, shots, value_column, order):
-    df_sub = df[df["shots"] == shots]
-    pivot = pd.pivot_table(
-        df_sub,
-        index="backbone",
-        columns=["transfer", "target"],
-        values=value_column,
-        aggfunc="min"
-    )
-    best_per_pair = pivot.idxmin()
-    counts = best_per_pair.value_counts().reindex(order, fill_value=0)
-    print(f"\n🏆 Best-count summary  |  metric={value_column}, shots={shots}")
-    for b in order:
-        print(f"{b:18}: {counts[b]}")
+    # 2) 다른 메트릭 값 맵핑
+    other = "gal" if sort_by=="spdp" else "spdp"
+    df_other = df[df.metric==other][["run_id","value"]].set_index("run_id")
+    best[other] = best["run_id"].map(df_other["value"])
 
-order = ["mlpbp", "spectroresnet", "bptransformer", "bptransformer+ours"]
+    # 3) pivot → 멀티인덱스 컬럼: (metric, transfer_target)
+    pivot = best.set_index(["label","transfer_target"])[[sort_by, other]]
+    pivot = pivot.unstack("transfer_target")
 
-for s in shots_list:
-    print_best_counts(best_spdp, s, "spdp", order)
-    print_best_counts(best_gal, s, "gal", order)
+    # 4) 컬럼 순서 고정: transfer_target 우선, 그 안에 [sort_by, other] metric
+    metrics = [sort_by, other]
+    cols = []
+    for tt in TRANSFER_TARGET_ORDER:
+        for m in metrics:
+            cols.append((m, tt))
+    pivot = pivot.reindex(columns=pd.MultiIndex.from_tuples(cols), fill_value=float("nan"))
+
+    # 5) 행 순서 고정
+    row_order = ["resnet1d","spectroresnet","mlpbp","bptransformer","bpt+ours"]
+    pivot = pivot.reindex(row_order)
+
+    # 6) chunk 단위로 나눠서 출력
+    chunks = [
+        TRANSFER_TARGET_ORDER[i : i + chunk_size]
+        for i in range(0, len(TRANSFER_TARGET_ORDER), chunk_size)
+    ]
+
+    for chunk in chunks:
+        # 해당 chunk에 속한 컬럼만 골라서
+        sub = pivot.loc[:, pd.IndexSlice[metrics, chunk]].copy()
+
+        # 7) 각 컬럼별 1등 이모지 추가
+        for m in metrics:
+            for tt in chunk:
+                col = (m, tt)
+                vals = sub[col].astype(float)
+                best_val = vals.min() if m=="spdp" else vals.max()
+                # 문자열 포맷 + emoji
+                sub[col] = vals.apply(
+                    lambda x: f"{x:.2f}" + (" 🥇" if x == best_val else "")
+                )
+
+        # 8) 표 출력
+        header = f"\n=== Shots: {shots} | best by {sort_by} | targets={chunk} ==="
+        print(header)
+        print(tabulate(sub, headers="keys", tablefmt="grid"))
+
+if __name__=="__main__":
+    show_results(5, sort_by="spdp", chunk_size=2)
+    # show_results(5, sort_by="gal", chunk_size=2)

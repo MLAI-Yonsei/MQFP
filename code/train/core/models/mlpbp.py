@@ -4,6 +4,8 @@ from torch import nn
 from einops.layers.torch import Rearrange
 from .base_pl import Regressor
 import coloredlogs, logging
+from core.model_config import model_configuration
+import wandb
 coloredlogs.install()
 logger = logging.getLogger(__name__)  
 
@@ -14,12 +16,11 @@ class MLPBP(Regressor):
         self.model = MLPMixer(param_model.in_channels, 
                                param_model.dim, 
                                param_model.num_classes, 
-                               param_model.num_patch,
+                               model_configuration[wandb.config.target]["data_dim"],
                                param_model.depth, 
                                param_model.token_dim, 
                                param_model.channel_dim, 
                                param_model.dropout)
-        
     def _shared_step(self, batch):
         x_ppg, y, group, x_abp, peakmask, vlymask = batch
         pred = self.model(x_ppg['ppg'])

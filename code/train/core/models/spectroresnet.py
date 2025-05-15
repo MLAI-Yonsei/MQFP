@@ -6,6 +6,8 @@ from torchaudio.transforms import Spectrogram
 from torchaudio.functional import amplitude_to_DB
 from .base_pl import Regressor
 import coloredlogs, logging
+from core.model_config import model_configuration, spectro_dim
+import wandb
 coloredlogs.install()
 logger = logging.getLogger(__name__)
 class SpectroResnet(Regressor):
@@ -120,8 +122,8 @@ class mid_spectrogram_LSTM_layer(nn.Module):
         self.n_hop = n_hop
         self.feat_dim = feat_dim
         self.stft = Spectrogram(n_fft=n_dft, hop_length=n_hop, center=False)  # return power instead of complex, don't need extra magnitude function
-        self.mlp_size = mlp_size
-        self.mlp = nn.Linear(mlp_size,self.feat_dim) # miss the kernel_regularizer, l2_lambda is not used
+        self.mlp_size = spectro_dim[wandb.config.transfer][wandb.config.target]
+        self.mlp = nn.Linear(self.mlp_size,self.feat_dim) # miss the kernel_regularizer, l2_lambda is not used
         self.relu = nn.ReLU()
         self.bn = nn.BatchNorm1d(feat_dim)
     def forward(self, x):
@@ -131,8 +133,6 @@ class mid_spectrogram_LSTM_layer(nn.Module):
         if self.verbose: print(x.shape)
         x = x.reshape(x.shape[0], -1)
         if self.verbose: print(x.shape)
-        #print('mlp_size_shape',x.shape[-1])
-        #print('mlp_size',self.mlp_size)
         x = self.relu(self.mlp(x))
         if len(x) != 1:
             x = self.bn(x)
