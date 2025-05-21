@@ -214,7 +214,7 @@ class SolverS2l(Solver):
                     }
                 )
             
-        metrics = cal_metric(err_dict, mode=mode)    
+        metrics = cal_metric(err_dict, mode=mode) 
         return metrics, results
             
 #%%
@@ -387,21 +387,30 @@ class SolverS2l(Solver):
                 metrics, results = self.get_cv_metrics(fold_errors, dm, model, test_outputs, mode="test", fold=foldIdx)
                 if len(results) != 0:
                     folds_results.append(results)
+                    
+                    # --- 여기서 fold-wise SPDP + GAL 계산 및 wandb log ---
+                    df = pd.DataFrame(results)
+                    sbp_mae = np.mean(np.abs(df["sbp_error"]))
+                    dbp_mae = np.mean(np.abs(df["dpb_error"]))
+                    spdp = sbp_mae + dbp_mae
+
+                    gal_sbp = df.groupby("group")["sbp_error"].apply(lambda x: np.mean(np.abs(x))).mean()
+                    gal_dbp = df.groupby("group")["dpb_error"].apply(lambda x: np.mean(np.abs(x))).mean()
+                    gal = gal_sbp + gal_dbp
+
+                    logger.info(f"[Fold {foldIdx}] SPDP = {spdp:.2f}, GAL = {gal:.2f}")
+
+                    if not self.config.ignore_wandb:
+                        wandb.log({
+                            f"Fold{foldIdx}/SPDP": spdp,
+                            f"Fold{foldIdx}/GAL": gal,
+                            f"Fold{foldIdx}/SBP_MAE": sbp_mae,
+                            f"Fold{foldIdx}/DBP_MAE": dbp_mae,
+                            f"Fold{foldIdx}/GAL_SBP": gal_sbp,
+                            f"Fold{foldIdx}/GAL_DBP": gal_dbp
+                        })    
                 logger.info(f"\t {metrics}")
                 mf.log_metrics(metrics)
-            #--- Save to model directoryn
-            # os.makedirs(self.config.path.model_directory, exist_ok=True)
-            # trainer.save_checkpoint("{}/{}-fold{}-test_sp={:.3f}-test_dp={:.3f}.ckpt".format(
-            #                                                                self.config.path.model_directory,
-            #                                                                self.config.exp.exp_name,
-            #                                                                foldIdx,
-            #                                                                metrics["test/sbp_mae"],
-            #                                                                metrics["test/dbp_mae"]))
-            # trainer.save_checkpoint("{}/{}-fold{}-original-seed{}.ckpt".format(
-            #     self.config.path.model_directory,
-            #     self.config.exp.exp_name,
-            #     foldIdx,
-            #     self.config.seed))
 
         #--- compute final metric
         out_metric = {}
@@ -417,7 +426,6 @@ class SolverS2l(Solver):
             err_dict = {tar: fold_errors[f"{mode}_{tar}_pred"] - fold_errors[f"{mode}_{tar}_label"] \
                         for tar in ['sbp', 'dbp',  'sbp_hypo', 'dbp_hypo', 'sbp_normal', 'dbp_normal',
                                     'sbp_prehyper', 'dbp_prehyper', 'sbp_hyper2', 'dbp_hyper2',
-                                    #'sbp_crisis', 'dbp_crisis'
                                     ]}
             #####################################################
             #####################################################
@@ -551,7 +559,7 @@ class SolverS2l(Solver):
             test_outputs = trainer.test(model=model, test_dataloaders=dm.test_dataloader(), verbose=True)
             metrics, results = self.get_cv_metrics(fold_errors, dm, model, test_outputs, mode="test", fold=foldIdx)
             if len(results) != 0:
-                    folds_results.append(results)
+                folds_results.append(results)
             logger.info(f"\t {metrics}")
 
         #--- compute final metric

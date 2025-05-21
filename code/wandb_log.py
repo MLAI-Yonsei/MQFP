@@ -118,7 +118,7 @@ TRANSFER_TARGET_ORDER = [
     "mimic_ecg→vital_ecg"
 ]
 
-def show_results(shots, sort_by="spdp", chunk_size=3):
+def show_results(shots, sort_by="spdp", chunk_size=3, baseline=None):
     """
     shots: int
     sort_by: "spdp" (낮을수록 좋음) 또는 "gal" (높을수록 좋음)
@@ -128,11 +128,16 @@ def show_results(shots, sort_by="spdp", chunk_size=3):
 
     df = pd.DataFrame(records)
     df = df[df.shots == shots]
+    if baseline is not None:
+        df = df[df.baseline == baseline]
 
     # label 벡터화
     mask = (df.backbone=="bptransformer") & (df.method=="prompt_global")
     df["label"] = df.backbone
-    df.loc[mask, "label"] = "bpt+ours"
+    # ours 조건
+    bpt_mask = (df.backbone == "bptransformer") & (df.method == "prompt_global")
+
+    df.loc[bpt_mask, "label"] = "bpt+ours"
     df["transfer_target"] = df.transfer + "→" + df.target
 
     # 1) best run 인덱스 찾기
@@ -162,7 +167,7 @@ def show_results(shots, sort_by="spdp", chunk_size=3):
     pivot = pivot.reindex(columns=pd.MultiIndex.from_tuples(cols), fill_value=float("nan"))
 
     # 5) 행 순서 고정
-    row_order = ["resnet1d","spectroresnet","mlpbp","bptransformer","bpt+ours"]
+    row_order = ["spectroresnet", "mlpbp", "resnet1d", "bptransformer", "bpt+ours"]
     pivot = pivot.reindex(row_order)
 
     # 6) chunk 단위로 나눠서 출력
@@ -204,7 +209,110 @@ def show_results(shots, sort_by="spdp", chunk_size=3):
         header = f"\n=== Shots: {shots} | best by {sort_by} | targets={chunk} ==="
         print(header)
         print(tabulate(sub, headers="keys", tablefmt="grid"))    
+        
+    # 9) bpt+ours vs bptransformer 비교
+    base = "bptransformer"
+    ours = "bpt+ours"
+
+    failed = []
+
+    for tt in TRANSFER_TARGET_ORDER:
+        for m in metrics:
+            try:
+                base_val = float(pivot.loc[base, (tt, m)])
+                ours_val = float(pivot.loc[ours, (tt, m)])
+            except KeyError:
+                continue  # 값이 없으면 skip
+
+            if ours_val >= base_val:
+                failed.append((tt, m, base_val, ours_val))
+
+    if failed:
+        print(f"\n❌ '{ours}' did not outperform '{base}' in {len(failed)} / {len(TRANSFER_TARGET_ORDER) * len(metrics)} cases:")
+        for tt, m, b, o in failed:
+            comp = "≥"
+            print(f" - {tt} [{m}]: {o:.2f} {comp} {b:.2f}")
+    else:
+        print(f"\n✅ '{ours}' outperformed '{base}' in all {len(TRANSFER_TARGET_ORDER) * len(metrics)} cases.")
+        
+    
+    # 10) res+ours vs resnet1d 비교
+    base = "resnet1d"
+    ours = "res+ours"
+
+    failed = []
+
+    for tt in TRANSFER_TARGET_ORDER:
+        for m in metrics:
+            try:
+                base_val = float(pivot.loc[base, (tt, m)])
+                ours_val = float(pivot.loc[ours, (tt, m)])
+            except KeyError:
+                continue  # 값이 없으면 skip
+
+            if ours_val >= base_val:
+                failed.append((tt, m, base_val, ours_val))
+
+    if failed:
+        print(f"\n❌ '{ours}' did not outperform '{base}' in {len(failed)} / {len(TRANSFER_TARGET_ORDER) * len(metrics)} cases:")
+        for tt, m, b, o in failed:
+            comp = "≥"
+            print(f" - {tt} [{m}]: {o:.2f} {comp} {b:.2f}")
+    else:
+        print(f"\n✅ '{ours}' outperformed '{base}' in all {len(TRANSFER_TARGET_ORDER) * len(metrics)} cases.")
+        
+def extract_commands_from_metadata(shots, sort_by="spdp", baseline=None, out_file="run_commands.sh"):
+    assert sort_by in ("spdp", "gal")
+
+    df = pd.DataFrame(records)
+    df = df[df.shots == shots]
+    if baseline is not None:
+        df = df[df.baseline == baseline]
+
+    # 라벨 정리
+    df["label"] = df.backbone
+    df.loc[(df.backbone == "bptransformer") & (df.method == "prompt_global"), "label"] = "bpt+ours"
+    df["transfer_target"] = df.transfer + "→" + df.target
+
+    # best run 선택
+    df_metric = df[df.metric == sort_by]
+    best_idx = df_metric.groupby(["label", "transfer_target"])["value"].idxmin()
+    best = df_metric.loc[best_idx, ["label", "transfer_target", "run_id"]]
+
+    row_order = ["spectroresnet", "mlpbp", "resnet1d", "bptransformer", "bpt+ours"]
+    col_order = TRANSFER_TARGET_ORDER
+
+    api = wandb.Api()
+    commands = []
+
+    for row in row_order:
+        for col in col_order:
+            match = (best.label == row) & (best.transfer_target == col)
+            if not match.any():
+                continue
+            run_id = best[match].iloc[0].run_id
+            try:
+                run = api.run(f"{PROJECT}/{run_id}")
+                metadata = run.metadata
+                prog = metadata.get("program", "train.py")
+                args = metadata.get("args", [])
+                cmd = f"python {prog} " + " ".join(args)
+                commands.append(f"# {row} x {col} ({run_id})\n{cmd}\n")
+            except Exception as e:
+                commands.append(f"# {row} x {col} ({run_id}) [ERROR] {e}\n")
+
+    # sh 파일로 저장
+    with open(out_file, "w") as f:
+        f.write("#!/bin/bash\n\n")
+        for c in commands:
+            f.write(c + "\n")
+    print(f"✅ Saved {len(commands)} commands to {out_file}")
+
+
+
 
 if __name__=="__main__":
-    show_results(5, sort_by="spdp", chunk_size=2)
-    show_results(10, sort_by="spdp", chunk_size=2)
+    # show_results(5, sort_by="spdp", chunk_size=4, baseline='ft')
+    # show_results(10, sort_by="spdp", chunk_size=4, baseline='ft')
+    extract_commands_from_metadata(5, sort_by="spdp", baseline='ft')
+    # extract_commands_from_metadata(10, sort_by="spdp", baseline='ft')
