@@ -192,7 +192,12 @@ class raw_signals_deep_ResNet(nn.Module):
         if self.verbose: print('spectral_outputs', spectral_outputs.shape)
         channel_outputs = torch.cat(channel_outputs, dim=1)
         if self.verbose: print('channel_outputs', channel_outputs.shape)
+<<<<<<< HEAD
         if len(x) != 1:
+=======
+        # LETS DO OVERFIT
+        if len(x) != 1: ## TODO
+>>>>>>> origin/main
             x = self.sig_bn1(channel_outputs)
         else:
             x = channel_outputs
@@ -201,6 +206,7 @@ class raw_signals_deep_ResNet(nn.Module):
         x, _ = self.sig_gru(x)
         if self.verbose: print('sig_gru', x.shape)
         x = x[:,-1,:].squeeze(1) # take only the final time output
+<<<<<<< HEAD
         if len(x) != 1: 
             x = self.sig_bn2(x)
         if self.verbose: print('sig_bn2', x.shape)
@@ -209,6 +215,16 @@ class raw_signals_deep_ResNet(nn.Module):
             s = self.spec_bn(spectral_outputs)
         else:
             s = spectral_outputs 
+=======
+        if len(x) != 1: ## TODO
+            x = self.sig_bn2(x)
+        if self.verbose: print('sig_bn2', x.shape)
+        # join time-domain and frequnecy domain fully-conencted layers
+        if len(x) != 1: ## TODO
+            s = self.spec_bn(spectral_outputs)
+        else:
+            s = spectral_outputs ## TODO
+>>>>>>> origin/main
         if self.verbose: print('spec_bn', s.shape)
         out = torch.cat([x, s], dim=-1)
         if self.verbose: print('joint', out.shape)

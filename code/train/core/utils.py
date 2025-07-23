@@ -648,6 +648,12 @@ def project_to_pca_plane(new_data, principal_components, mean):
 
 
 def extract_pca_statistics(data, labels, groups, pca, boundary=2, group_labels=[0, 1, 2, 3], device='cuda'):
+<<<<<<< HEAD
+=======
+    """
+    주어진 데이터셋의 PCA 변환 버전에서 그룹별 평균과 분산을 추출합니다.
+    """
+>>>>>>> origin/main
     all_data = data
     pca.fit(all_data.cpu().numpy())
     all_data = pca.transform(all_data.cpu().numpy())
@@ -663,6 +669,12 @@ def extract_pca_statistics(data, labels, groups, pca, boundary=2, group_labels=[
     return statistics
 
 def filter_dataset_based_on_statistics(data, labels, groups, statistics, pca=None, group_labels=[0, 1, 2, 3], is_pca=False, device='cuda'):
+<<<<<<< HEAD
+=======
+    """
+    주어진 데이터셋을 주어진 통계치를 기준으로 필터링합니다.
+    """
+>>>>>>> origin/main
     all_data = data.unsqueeze(1).to(device)
     real_data = all_data
     all_groups = groups.to(device)

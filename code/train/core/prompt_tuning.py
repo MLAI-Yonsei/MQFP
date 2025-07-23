@@ -30,7 +30,11 @@ def normalizer(x, x_prompted):
     return normalized_x_prompted
 
 def normalize_keys(keys):
+<<<<<<< HEAD
     # Min-Max Scaling
+=======
+    # Min-Max Scaling을 사용한 정규화
+>>>>>>> origin/main
     min_val = keys.min(dim=-1, keepdim=True)[0]
     max_val = keys.max(dim=-1, keepdim=True)[0]
     normalized_keys = (keys - min_val) / (max_val - min_val)
@@ -257,6 +261,10 @@ class L2Prompt_stepbystep(nn.Module):
             ppg_fft_real, freq_real_min, freq_real_max = freq_norm(ppg_fft.real)
 
             ppg_fft_imag, freq_imag_min, freq_imag_max = freq_norm(ppg_fft.imag)
+<<<<<<< HEAD
+=======
+            # 1번째부터 trunc_dim+1 번째까지 값을 넣고 나머지에 zero padding
+>>>>>>> origin/main
             truncated_prompt_real = torch.zeros_like(x['ppg'], dtype=torch.float)
             truncated_prompt_imag = torch.zeros_like(x['ppg'], dtype=torch.float)
             truncated_prompt_real[:,:,1:self.trunc_dim+1] = self.config.global_coeff*top1_prompts[:,:,:self.trunc_dim]
@@ -290,6 +298,10 @@ class L2Prompt_stepbystep(nn.Module):
             #     'prompted_signal': prompted_signal
             # }
 
+<<<<<<< HEAD
+=======
+            # # .pt 파일로 저장
+>>>>>>> origin/main
             # torch.save(saved_data, "./saved_data.pt")
             
         else:
@@ -392,7 +404,11 @@ class L2Prompt(nn.Module):
 
         queries = torch.stack(emb_list, dim=1)
         
+<<<<<<< HEAD
         d_k = queries.size(-1)  # query's dimension
+=======
+        d_k = queries.size(-1)  # query의 마지막 차원의 크기
+>>>>>>> origin/main
         cos_sim = torch.einsum('bqd,nqd->bqn', queries, self.keys) / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
 
         gumbel_sample = F.gumbel_softmax(cos_sim, tau=1.0, hard=True)
@@ -435,7 +451,11 @@ class L2Prompt(nn.Module):
             # fft + propmt
             ppg_fft_real, freq_real_min, freq_real_max = freq_norm(x_fft.real)
             ppg_fft_imag, freq_imag_min, freq_imag_max = freq_norm(x_fft.imag)
+<<<<<<< HEAD
             # 1st to trunc_dim+1th value to padding to zero
+=======
+            # 1번째부터 trunc_dim+1 번째까지 값을 넣고 나머지에 zero padding
+>>>>>>> origin/main
             truncated_prompt_real = torch.zeros_like(x_fft, dtype=torch.float)
             truncated_prompt_imag = torch.zeros_like(x_fft, dtype=torch.float)
 
@@ -542,6 +562,15 @@ class MQFP_wrapper(pl.LightningModule):
         
         hidden_emb = self.base_model.extract_penultimate_embedding(merged)
 
+<<<<<<< HEAD
+=======
+        # hidden_emb + prompt 를 resnet penltimate layer에 삽입 (교체)
+        # pred = self.base_model.main_clf(hidden_emb + penulit_emb_prompt)
+
+        # torch.save(merged, "merged_1.pt")
+        # pred = self.base_model(merged)
+
+>>>>>>> origin/main
         if self.config.add_prompts == "every" or self.config.add_prompts == 'final':
             pred = self.base_model.model.forward_w_add_prompts(merged)
         else:
@@ -566,10 +595,14 @@ class MQFP_wrapper(pl.LightningModule):
 
         else:
             loss = self.criterion(pred, y)
+<<<<<<< HEAD
             if self.config.use_emb_diff:
                 emb_diff_loss = self.embedding_loss(hidden_emb, group)
             else:
                 emb_diff_loss = 0
+=======
+            emb_diff_loss = self.embedding_loss(hidden_emb, group)
+>>>>>>> origin/main
             if not self.config.ignore_wandb:
                 wandb.log(
                     {f'Fold{self.fold}/{mode}_reg_loss':loss,

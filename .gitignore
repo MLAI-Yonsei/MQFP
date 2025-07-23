@@ -6,9 +6,17 @@ code/train/mlruns
 code/train/lightning_logs
 code/train/wandb
 results/
+<<<<<<< HEAD
+=======
+real_results/
+real_model
+>>>>>>> origin/main
 *.pt
 code/train/core/loaders/__pycache__
 code/train/core/__pycache__
 code/train/core/models/__pycache__
 code/train/experiments/wandb/
+<<<<<<< HEAD
 !pretrained_models/*.pt
+=======
+>>>>>>> origin/main
