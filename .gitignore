@@ -1,0 +1,14 @@
+code/train/model_original
+code/train/model-resnet1d
+code/train/model-resnet1d_
+code/train/model-spectroresnet
+code/train/mlruns
+code/train/lightning_logs
+code/train/wandb
+results/
+*.pt
+code/train/core/loaders/__pycache__
+code/train/core/__pycache__
+code/train/core/models/__pycache__
+code/train/experiments/wandb/
+!pretrained_models/*.pt
