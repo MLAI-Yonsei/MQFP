@@ -15,12 +15,13 @@ Jinho Kang, Hoyoon Byun, Taero Kim, Jiyoung Jung, Kyungwoo Song
 If you find this work useful in your research, please consider citing:
 
 ```bibtex
-@article{kang2025mqfp,
-  title     = {Multi-Query Frequency Prompting for Physiological Signal Domain Adaptation},
-  author    = {Kang, Jinho and Byun, Hoyoon and Kim, Taero and Jung, Jiyoung and Song, Kyungwoo},
-  journal   = {Knowledge-Based Systems},
-  year      = {2025},
-  doi       = {10.1016/j.knosys.2025.114082}
+@article{kang2025multi,
+  title={Multi-Query Frequency Prompting for Physiological Signal Domain Adaptation},
+  author={Kang, Jinho and Byun, Hoyoon and Kim, Taero and Jung, Jiyoung and Song, Kyungwoo},
+  journal={Knowledge-Based Systems},
+  pages={114082},
+  year={2025},
+  publisher={Elsevier}
 }
 ```
 ## Quick Summary
