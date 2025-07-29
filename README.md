@@ -1,7 +1,28 @@
 # Multi-Query Frequency Prompting for Physiological Signal Domain Adaptation
 
-This is the official pytorch implementation of the paper "Multi-Query Frequency Prompting for Physiological Signal Domain Adaptation, Kang & Byun et al.".
+This is the official PyTorch implementation of the paper:
 
+**"Multi-Query Frequency Prompting for Physiological Signal Domain Adaptation"**  
+Jinho Kang, Hoyoon Byun, Taero Kim, Jiyoung Jung, Kyungwoo Song  
+*Knowledge-Based Systems (Elsevier), 2025*  
+📄 [Paper Link](https://www.sciencedirect.com/science/article/abs/pii/S095070512501127X)  
+📌 DOI: [10.1016/j.knosys.2025.114082](https://doi.org/10.1016/j.knosys.2025.114082)
+
+---
+
+## 📚 Citation
+
+If you find this work useful in your research, please consider citing:
+
+```bibtex
+@article{kang2025mqfp,
+  title     = {Multi-Query Frequency Prompting for Physiological Signal Domain Adaptation},
+  author    = {Kang, Jinho and Byun, Hoyoon and Kim, Taero and Jung, Jiyoung and Song, Kyungwoo},
+  journal   = {Knowledge-Based Systems},
+  year      = {2025},
+  doi       = {10.1016/j.knosys.2025.114082}
+}
+```
 ## Quick Summary
 
 ![Motivation_v2](https://github.com/user-attachments/assets/29397798-9e08-43fe-9acd-f0a800080a9a)
